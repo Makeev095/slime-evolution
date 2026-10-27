@@ -7,7 +7,10 @@ export const CONFIG = {
   storageKey: 'slime_evolution_save_v1',
 
   ads: {
-    interstitialIntervalMs: 120000, // межстраничная реклама не чаще раза в 2 минуты
+    interstitialIntervalMs: 120000, // межстраничная реклама не чаще раза в 2 минуты...
+    // ...но в поздней игре (большой доход, дальние стадии) пауза между роликами короче: так игроку интереснее досматривать финал.
+    // Индекс = стадия эволюции.
+    intervalByStageMs: [120000, 120000, 120000, 120000, 105000, 90000, 75000],
     idleBeforeAdMs: 6000,           // перед рекламой игрок не должен тапать минимум столько
     countdownSec: 3,                // предупреждение «Видео через 3…»
     saveDebounceMs: 2000,           // важные сохранения (покупки, эволюция) уходят в облако быстро
@@ -19,8 +22,7 @@ export const CONFIG = {
     costGrowth: 1.15,                                         // рост цены производителя
     milestones: [10, 25, 50, 100, 150, 200, 250, 300, 400, 500], // каждое достижение удваивает доход производителя
     tap: { baseCost: 25, growth: 1.38, doubleEvery: 10, cpsShare: 0.03 },
-    essence: { divisor: 5e7, perPoint: 0.1 },                 // эссенция перерождения: +10% к доходу за очко
-    offline: { capSec: 7200, rate: 0.5, silentSec: 120 },     // оффлайн: до 2 ч, 50%; до 2 минут отсутствия — начисляем молча и полностью
+    essence: { divisor: 5e7, power: 0.34, perPoint: 0.1 },     // эссенция = (желе за забег / divisor)^power; +10% к доходу за очко
     boost: { adMs: 120000, maxMs: 1800000, mult: 2, gemMult: 5, gemMs: 300000 },
     frenzy: { perTap: 0.065, decayPerSec: 0.45, holdMs: 500, durationMs: 7000, tapMult: 3 },
     gift: { cooldownMs: 240000, minutes: 10 },                // подарок за видео: 10 минут дохода
@@ -34,13 +36,13 @@ export const CONFIG = {
     ],
     // Стадии эволюции: порог по накопленному за всё время желе, множитель дохода, награда кристаллами
     stages: [
-      { at: 0,    mult: 1,   gems: 0,  ru: 'Капелька',    en: 'Droplet' },
-      { at: 300,  mult: 1.5, gems: 5,  ru: 'Слайм',       en: 'Slime' },
-      { at: 2e4,  mult: 2,   gems: 10, ru: 'Рыцарь',      en: 'Knight' },
-      { at: 1e6,  mult: 3,   gems: 15, ru: 'Маг',         en: 'Wizard' },
-      { at: 6e7,  mult: 4,   gems: 25, ru: 'Дракон',      en: 'Dragon' },
-      { at: 4e9,  mult: 6,   gems: 40, ru: 'Космонавт',   en: 'Astronaut' },
-      { at: 3e11, mult: 10,  gems: 75, ru: 'Бог слаймов', en: 'Slime God' }
+      { at: 0,    mult: 1,   gems: 0,  ru: 'Капелька',    en: 'Droplet', tr: 'Damla' },
+      { at: 300,  mult: 1.5, gems: 5,  ru: 'Слайм',       en: 'Slime', tr: 'Slime' },
+      { at: 2e4,  mult: 2,   gems: 10, ru: 'Рыцарь',      en: 'Knight', tr: 'Şövalye' },
+      { at: 1e6,  mult: 3,   gems: 15, ru: 'Маг',         en: 'Wizard', tr: 'Büyücü' },
+      { at: 6e7,  mult: 4,   gems: 25, ru: 'Дракон',      en: 'Dragon', tr: 'Ejderha' },
+      { at: 4e9,  mult: 6,   gems: 40, ru: 'Космонавт',   en: 'Astronaut', tr: 'Astronot' },
+      { at: 5e12, mult: 10,  gems: 75, ru: 'Бог слаймов', en: 'Slime God', tr: 'Slime Tanrısı' }
     ]
   },
 
@@ -60,82 +62,21 @@ export const CONFIG = {
 
 // Производители (пассивный доход в секунду). Эмодзи старые (Unicode ≤ 9), чтобы рисовались на любых устройствах.
 export const GENS = [
-  { id: 'drop',     emoji: '💧', baseCost: 15,      baseCps: 0.1,    ru: 'Капельница',      en: 'Dripper' },
-  { id: 'worm',     emoji: '🐛', baseCost: 100,     baseCps: 1,      ru: 'Червячок',        en: 'Little worm' },
-  { id: 'mushroom', emoji: '🍄', baseCost: 1100,    baseCps: 8,      ru: 'Грибная ферма',   en: 'Mushroom farm' },
-  { id: 'lab',      emoji: '⚗️', baseCost: 12000,   baseCps: 47,     ru: 'Лаборатория',     en: 'Laboratory' },
-  { id: 'volcano',  emoji: '🌋', baseCost: 130000,  baseCps: 260,    ru: 'Вулкан',          en: 'Volcano' },
-  { id: 'castle',   emoji: '🏰', baseCost: 1.4e6,   baseCps: 1400,   ru: 'Замок слаймов',   en: 'Slime castle' },
-  { id: 'dragon',   emoji: '🐉', baseCost: 2e7,     baseCps: 7800,   ru: 'Дракон-несушка',  en: 'Egg dragon' },
-  { id: 'rocket',   emoji: '🚀', baseCost: 3.3e8,   baseCps: 44000,  ru: 'Ракета',          en: 'Rocket' },
-  { id: 'portal',   emoji: '🌀', baseCost: 5.1e9,   baseCps: 2.6e5,  ru: 'Портал',          en: 'Portal' },
-  { id: 'planet',   emoji: '🌎', baseCost: 7.5e10,  baseCps: 1.6e6,  ru: 'Планета желе',    en: 'Jelly planet' },
-  { id: 'star',     emoji: '⭐', baseCost: 1e12,    baseCps: 1e7,    ru: 'Звезда',          en: 'Star' },
-  { id: 'hole',     emoji: '🕳️', baseCost: 1.4e13,  baseCps: 6.5e7,  ru: 'Чёрная дыра',     en: 'Black hole' }
+  { id: 'drop',     emoji: '💧', baseCost: 15,      baseCps: 0.1,    ru: 'Капельница',      en: 'Dripper', tr: 'Damlatıcı' },
+  { id: 'worm',     emoji: '🐛', baseCost: 100,     baseCps: 1,      ru: 'Червячок',        en: 'Little worm', tr: 'Solucan' },
+  { id: 'mushroom', emoji: '🍄', baseCost: 1100,    baseCps: 8,      ru: 'Грибная ферма',   en: 'Mushroom farm', tr: 'Mantar çiftliği' },
+  { id: 'lab',      emoji: '⚗️', baseCost: 12000,   baseCps: 47,     ru: 'Лаборатория',     en: 'Laboratory', tr: 'Laboratuvar' },
+  { id: 'volcano',  emoji: '🌋', baseCost: 130000,  baseCps: 260,    ru: 'Вулкан',          en: 'Volcano', tr: 'Yanardağ' },
+  { id: 'castle',   emoji: '🏰', baseCost: 1.4e6,   baseCps: 1400,   ru: 'Замок слаймов',   en: 'Slime castle', tr: 'Slime kalesi' },
+  { id: 'dragon',   emoji: '🐉', baseCost: 2e7,     baseCps: 7800,   ru: 'Дракон-несушка',  en: 'Egg dragon', tr: 'Yumurtlayan ejderha' },
+  { id: 'rocket',   emoji: '🚀', baseCost: 3.3e8,   baseCps: 44000,  ru: 'Ракета',          en: 'Rocket', tr: 'Roket' },
+  { id: 'portal',   emoji: '🌀', baseCost: 6e9,     baseCps: 2.6e5,  ru: 'Портал',          en: 'Portal', tr: 'Portal' },
+  { id: 'planet',   emoji: '🌎', baseCost: 1.5e11,  baseCps: 1.6e6,  ru: 'Планета желе',    en: 'Jelly planet', tr: 'Jöle gezegeni' },
+  { id: 'star',     emoji: '⭐', baseCost: 2e13,    baseCps: 2e7,    ru: 'Звезда',          en: 'Star', tr: 'Yıldız' },
+  { id: 'hole',     emoji: '🕳️', baseCost: 6e15,    baseCps: 2e8,    ru: 'Чёрная дыра',     en: 'Black hole', tr: 'Kara delik' }
 ];
 
-// ---------- Локализация ----------
-const I18N = {
-  ru: {
-    loading: 'Загрузка', tapHint: 'Тапай по слайму!', perSec: '{n}/сек',
-    upgrades: 'Улучшения', crystals: 'Кристаллы', rebirth: 'Рождение',
-    tapPower: 'Сила тапа', tapPowerDesc: '+{n} желе за тап', level: 'Ур. {n}', owned: 'Есть: {n}',
-    locked: 'Откроется за {n}', milestone: 'x2 на {n}', buy: 'КУПИТЬ', maxBuy: 'МАКС', noMoney: 'Не хватает желе', noGems: 'Не хватает кристаллов',
-    stage: 'Стадия', evolveTo: 'Эволюция: {name}', nextStage: 'до «{name}»', maxStage: 'Максимальная стадия!',
-    evolution: 'ЭВОЛЮЦИЯ!', evolvedInto: 'Ты стал: {name}', bonusAll: 'Весь доход x{n}', claim: 'ЗАБРАТЬ', claimX2: 'x2 ЗА ВИДЕО',
-    offlineTitle: 'С возвращением!', offlineText: 'Пока тебя не было, слайм накопил', offlineTime: 'Тебя не было: {t}',
-    dailyTitle: 'Ежедневный подарок', dailyDay: 'День {n}', dailyStreak: 'Заходи каждый день — награды растут!',
-    boost: 'x2', boostName: 'Ускорение', boostActive: 'x{n}  {t}', watchAd: 'ВИДЕО', gift: 'ПОДАРОК', giftWait: '{t}',
-    free: 'БЕСПЛАТНО', golden: 'Золотой пузырь!', frenzy: 'ЯРОСТЬ!', combo: 'КОМБО',
-    goldLucky: 'Удача! +{n}', goldFrenzy: 'Золотая лихорадка x7!', goldStorm: 'Тап-шторм x10!', goldGems: '+{n} кристаллов!',
-    gemVideo: '+{n} кристаллов', gemVideoDesc: 'Посмотри короткое видео', warp: 'Перемотка {h} ч', warpDesc: 'Мгновенно получи доход за {h} ч',
-    turbo: 'Турбо x5', turboDesc: 'Доход и тапы x5 на 5 минут', shopBtn: 'Купить кристаллы', shopDesc: 'Кристаллы и вечные бонусы',
-    rebirthTitle: 'Перерождение', rebirthDesc: 'Начни заново и получи эссенцию: каждая даёт +10% к доходу навсегда. Стадия и кристаллы сохраняются.',
-    essence: 'Эссенция: {n}', essenceGain: 'Получишь: +{n}', rebirthBtn: 'ПЕРЕРОДИТЬСЯ', rebirthLock: 'Накопи ещё {n} желе за это рождение',
-    rebirthConfirm: 'Сбросить желе и улучшения ради +{n} эссенции?', rebirthDone: 'Новое рождение! +{n} эссенции', yes: 'ДА', no: 'НЕТ',
-    shop: 'МАГАЗИН', gemsN: '{n} кристаллов', noAds: 'Без рекламы', noAdsDesc: 'Без видео между действиями',
-    x2Forever: 'Доход x2 навсегда', x2Desc: 'Весь доход и тапы удваиваются', ownedShort: 'КУПЛЕНО', close: 'ЗАКРЫТЬ',
-    payUnavailable: 'Покупки сейчас недоступны', purchased: 'Спасибо за покупку!', purchaseFail: 'Покупка не удалась', shopLoading: 'Загрузка товаров…',
-    adFail: 'Видео сейчас недоступно', adSoon: 'Видео через {n}…', ok: 'ОК', thanks: 'Спасибо!',
-    tabNew: 'Новое', gelPerTap: '+{n}', soundOn: 'Звук', maxed: 'МАКС'
-  },
-  en: {
-    loading: 'Loading', tapHint: 'Tap the slime!', perSec: '{n}/sec',
-    upgrades: 'Upgrades', crystals: 'Crystals', rebirth: 'Rebirth',
-    tapPower: 'Tap power', tapPowerDesc: '+{n} jelly per tap', level: 'Lv. {n}', owned: 'Owned: {n}',
-    locked: 'Unlocks at {n}', milestone: 'x2 at {n}', buy: 'BUY', maxBuy: 'MAX', noMoney: 'Not enough jelly', noGems: 'Not enough crystals',
-    stage: 'Stage', evolveTo: 'Evolution: {name}', nextStage: 'to "{name}"', maxStage: 'Max stage reached!',
-    evolution: 'EVOLUTION!', evolvedInto: 'You became: {name}', bonusAll: 'All income x{n}', claim: 'CLAIM', claimX2: 'x2 FOR VIDEO',
-    offlineTitle: 'Welcome back!', offlineText: 'While you were away, your slime made', offlineTime: 'Away for: {t}',
-    dailyTitle: 'Daily gift', dailyDay: 'Day {n}', dailyStreak: 'Come back every day — rewards grow!',
-    boost: 'x2', boostName: 'Boost', boostActive: 'x{n}  {t}', watchAd: 'VIDEO', gift: 'GIFT', giftWait: '{t}',
-    free: 'FREE', golden: 'Golden bubble!', frenzy: 'FRENZY!', combo: 'COMBO',
-    goldLucky: 'Lucky! +{n}', goldFrenzy: 'Golden rush x7!', goldStorm: 'Tap storm x10!', goldGems: '+{n} crystals!',
-    gemVideo: '+{n} crystals', gemVideoDesc: 'Watch a short video', warp: 'Time warp {h} h', warpDesc: 'Instantly get {h} h of income',
-    turbo: 'Turbo x5', turboDesc: 'Income and taps x5 for 5 minutes', shopBtn: 'Buy crystals', shopDesc: 'Crystals and forever bonuses',
-    rebirthTitle: 'Rebirth', rebirthDesc: 'Start over and gain essence: each point gives +10% income forever. Stage and crystals are kept.',
-    essence: 'Essence: {n}', essenceGain: 'You will get: +{n}', rebirthBtn: 'REBIRTH', rebirthLock: 'Earn {n} more jelly in this life',
-    rebirthConfirm: 'Reset jelly and upgrades for +{n} essence?', rebirthDone: 'Reborn! +{n} essence', yes: 'YES', no: 'NO',
-    shop: 'SHOP', gemsN: '{n} crystals', noAds: 'No ads', noAdsDesc: 'No videos between actions',
-    x2Forever: 'Income x2 forever', x2Desc: 'All income and taps doubled', ownedShort: 'OWNED', close: 'CLOSE',
-    payUnavailable: 'Purchases are unavailable right now', purchased: 'Thank you!', purchaseFail: 'Purchase failed', shopLoading: 'Loading products…',
-    adFail: 'Video unavailable right now', adSoon: 'Video in {n}…', ok: 'OK', thanks: 'Thanks!',
-    tabNew: 'New', gelPerTap: '+{n}', soundOn: 'Sound', maxed: 'MAX'
-  }
-};
-
-let currentLang = 'ru';
-export function setLang(code) {
-  code = String(code || 'ru').toLowerCase().slice(0, 2);
-  currentLang = ['ru', 'be', 'kk', 'uk', 'uz', 'hy', 'az', 'ka', 'tg', 'ky', 'tk'].includes(code) ? 'ru' : 'en';
-}
-export function getLang() { return currentLang; }
-export function t(key, vars) {
-  let s = (I18N[currentLang] && I18N[currentLang][key]) || I18N.ru[key] || key;
-  if (vars) for (const k in vars) s = s.split('{' + k + '}').join(vars[k]);
-  return s;
-}
-export function lname(obj) { return obj[currentLang === 'ru' ? 'ru' : 'en']; }
+export { LANGS, LANG_NAMES, setLang, getLang, t, lname } from './i18n.js';
 
 // ---------- Конфигурация Phaser ----------
 export function createGameConfig(scenes) {

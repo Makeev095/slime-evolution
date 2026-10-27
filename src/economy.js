@@ -1,4 +1,4 @@
-// Чистая экономика игры (без Phaser и DOM): цены, доход, эволюция, перерождение, оффлайн, ежедневные награды.
+// Чистая экономика игры (без Phaser и DOM): цены, доход, эволюция, перерождение, ежедневные награды.
 // Все функции принимают объект данных игрока `d` (см. yandexSDK.defaultData) и не мутируют его, если не сказано иное.
 
 import { CONFIG, GENS } from './config.js';
@@ -72,15 +72,6 @@ export function tapValue(d, now = 0, frenzy = 1) {
 // Желе за тап без временных бонусов (для подписи в магазине)
 export const tapBaseValue = (d) => tapValue(d, 0, 1);
 
-// ---------- Оффлайн ----------
-// Возвращает { gain, silent }. elapsed — секунд отсутствия.
-export function offlineGain(d, elapsedSec) {
-  if (!(elapsedSec > 0)) return { gain: 0, silent: true };
-  const rate = cps(d, 0);
-  if (elapsedSec <= E.offline.silentSec) return { gain: rate * elapsedSec, silent: true };
-  return { gain: rate * Math.min(elapsedSec, E.offline.capSec) * E.offline.rate, silent: false };
-}
-
 // ---------- Эволюция ----------
 // Прогресс до следующей стадии: { stage, next, ratio, need } (next = -1 на последней стадии)
 export function evolutionProgress(allTime) {
@@ -91,10 +82,10 @@ export function evolutionProgress(allTime) {
 }
 
 // ---------- Перерождение ----------
-export const essenceGain = (runGel) => Math.floor(Math.sqrt(Math.max(0, runGel) / E.essence.divisor));
+export const essenceGain = (runGel) => Math.floor(Math.pow(Math.max(0, runGel) / E.essence.divisor, E.essence.power) + 1e-9);
 export const essenceNeed = (runGel) => {
   const k = essenceGain(runGel) + 1;
-  return Math.max(0, k * k * E.essence.divisor - runGel);
+  return Math.max(0, Math.pow(k, 1 / E.essence.power) * E.essence.divisor - runGel);
 };
 // Применяет перерождение к данным (мутирует d). Возвращает полученную эссенцию.
 export function applyRebirth(d) {

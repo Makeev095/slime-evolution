@@ -10,6 +10,7 @@ mkdir -p vendor
 rm -rf dist slime-evolution.zip
 mkdir -p dist
 cp -R src dist/src
+cp -R fonts dist/fonts
 cp vendor/phaser.min.js dist/phaser.min.js
 sed "s#$PHASER_URL#phaser.min.js#" index.html > dist/index.html
 

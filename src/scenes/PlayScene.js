@@ -1,11 +1,11 @@
-import { CONFIG, DESIGN, GENS, t, lname } from '../config.js';
+import { CONFIG, DESIGN, GENS, LANGS, LANG_NAMES, getLang, t, lname } from '../config.js';
 import { YandexSDK } from '../yandexSDK.js';
 import { Sfx } from '../audio.js';
 import * as Eco from '../economy.js';
-import { fmt, fmtTime, fmtAway } from '../format.js';
+import { fmt, fmtGel, fmtTime, fmtAway } from '../format.js';
 import { buildDecor, SLIME_SIZE } from '../art.js';
-import { fitCamera, makeText, gradientText, makeButton, makeRoundButton, burst, shock, floatText, toast } from '../ui.js';
-import { UpgradePanel } from '../ui/UpgradePanel.js';
+import { makeText, gradientText, makeButton, makeRoundButton, burst, shock, floatText, toast } from '../ui.js';
+import { UpgradePanel, PANEL } from '../ui/UpgradePanel.js';
 import { openModal } from '../ui/Modal.js';
 
 const E = CONFIG.eco;
@@ -27,7 +27,7 @@ export class PlayScene extends Phaser.Scene {
   constructor() { super('PlayScene'); }
 
   create() {
-    fitCamera(this);
+    this.setupCameras();
     this.d = YandexSDK.data;
     const d = this.d;
     const now = Date.now();
@@ -60,11 +60,11 @@ export class PlayScene extends Phaser.Scene {
     this.buildBackground(this.shownStage);
     this.buildSlime();
     this.buildHud();
+    this._buildingPanel = true;
     this.panel = new UpgradePanel(this, this);
-    const layout = () => {
-      const cam = this.cameras.main;
-      this.panel.setListHeight(DESIGN.H / 2 + cam.height / (2 * cam.zoom) - 688 - 4);
-    };
+    this._buildingPanel = false;
+    this.panelObjs = this.collectObjs(this.panel.root, []);
+    const layout = () => this.layoutCameras();
     layout();
     this.scale.on('resize', layout);
     this.events.once('shutdown', () => this.scale.off('resize', layout));
@@ -85,9 +85,7 @@ export class PlayScene extends Phaser.Scene {
     // покупки, оформленные в магазине, сразу отражаются в игре
     YandexSDK.onGrant = (prod) => { this.dirty = true; this.panel.refresh(true); this.refreshHud(true); };
 
-    // --- старт: оффлайн-доход и ежедневная награда ---
-    const away = d.lastSeen ? (now - d.lastSeen) / 1000 : 0;
-    this.handleAway(away, true);
+    // --- старт: ежедневная награда. Дохода «пока тебя не было» нет — желе капает только пока игрок в игре ---
     this.checkEvolution(true);
     this.pumpModals();
 
@@ -98,6 +96,75 @@ export class PlayScene extends Phaser.Scene {
 
     if (location.search.includes('debug')) window.__slime = { scene: this, YandexSDK, CONFIG, Eco, Sfx };
   }
+
+  // =====================================================================
+  //  КАМЕРЫ И РАСКЛАДКА
+  //  Узкий экран (телефон): весь мир 600x1000 в одной камере, магазин внизу.
+  //  Широкий экран (компьютер, планшет): слева магазин на своей камере (крупные карточки), справа слайм на главной камере.
+  // =====================================================================
+  setupCameras() {
+    this.mainCam = this.cameras.main;
+    this.mainCam.setBackgroundColor('#1a1040');
+    this.panelCam = this.cameras.add(0, 0, 10, 10, false, 'panel');
+    this.panelCam.setBackgroundColor('#3b2a8c').setVisible(false);
+    this.wide = false;
+    this.laidOut = false;
+    this._buildingPanel = false;
+    this.panelObjs = [];
+    // всё, что создаётся не магазином, левая камера не рисует
+    const hook = (go) => { if (!this._buildingPanel) this.panelCam.ignore(go); };
+    this.events.on(Phaser.Scenes.Events.ADDED_TO_SCENE, hook);
+    this.events.once('shutdown', () => this.events.off(Phaser.Scenes.Events.ADDED_TO_SCENE, hook));
+  }
+  collectObjs(go, out) {
+    out.push(go);
+    if (go.list) go.list.forEach((ch) => this.collectObjs(ch, out));
+    return out;
+  }
+  setCamFilter(objs, cam, hide) {
+    for (const o of objs) { if (hide) o.cameraFilter |= cam.id; else o.cameraFilter &= ~cam.id; }
+  }
+  layoutCameras() {
+    const w = this.scale.width, h = this.scale.height;
+    const wide = w / h >= 1.2;
+    const P = PANEL;
+    if (wide !== this.wide || !this.laidOut) {
+      this.setCamFilter(this.panelObjs, this.mainCam, wide);
+      this.panelCam.setVisible(wide);
+      this.wide = wide; this.laidOut = true;
+    }
+    const mc = this.mainCam;
+    if (!wide) {
+      mc.setViewport(0, 0, w, h);
+      const z = Math.min(w / DESIGN.W, h / DESIGN.H);
+      mc.setZoom(z); mc.centerOn(DESIGN.W / 2, DESIGN.H / 2);
+      this.visBottom = DESIGN.H / 2 + h / (2 * z);
+      this.panel.setListHeight(this.visBottom - P.LIST_Y - 4);
+    } else {
+      const pw = Math.round(w * 0.5), vw = w - pw;
+      const pc = this.panelCam;
+      pc.setViewport(0, 0, pw, h);
+      const zp = Math.min(pw / DESIGN.W, h / 720);
+      const y0 = P.TOP - 2;
+      pc.setZoom(zp); pc.centerOn(DESIGN.W / 2, y0 + h / (2 * zp));
+      mc.setViewport(pw, 0, vw, h);
+      const z = Math.min(vw / DESIGN.W, h / 640);
+      mc.setZoom(z); mc.centerOn(DESIGN.W / 2, h / (2 * z));
+      this.visBottom = h / z;
+      this.panel.setListHeight(h / zp - (P.LIST_Y - y0) - 4);
+    }
+  }
+  // экранные координаты указателя -> мировые координаты камеры
+  toWorld(cam, p) {
+    return {
+      x: cam.scrollX + cam.width / 2 + (p.x - cam.x - cam.width / 2) / cam.zoom,
+      y: cam.scrollY + cam.height / 2 + (p.y - cam.y - cam.height / 2) / cam.zoom
+    };
+  }
+  // указатель над областью магазина? (на широком экране это левая половина)
+  inPanel(p) { return !this.wide || p.x < this.panelCam.width; }
+  panelWorld(p) { return this.toWorld(this.wide ? this.panelCam : this.mainCam, p); }
+  uiLocked() { return !!(this.modal || this.shopOpen || YandexSDK.busy); }
 
   // =====================================================================
   //  ФОН
@@ -146,7 +213,7 @@ export class PlayScene extends Phaser.Scene {
     this.setSlimeTexture(true);
 
     this.hit = this.add.zone(SLIME_X, SLIME_BOTTOM - 150, 400, 360).setInteractive({ useHandCursor: true }).setDepth(6);
-    this.hit.on('pointerdown', (p) => this.tapSlime(p.worldX, p.worldY, false));
+    this.hit.on('pointerdown', (p) => { const w = this.toWorld(this.mainCam, p); this.tapSlime(w.x, w.y, false); });
 
     // выбрасываемые капли
     this.drops = this.add.particles(0, 0, 'gel', {
@@ -266,6 +333,10 @@ export class PlayScene extends Phaser.Scene {
       if (this.d.sound) Sfx.startMusic(this.game);
     }, 56).setDepth(30);
 
+    // язык (флаг текущего языка → окно выбора)
+    this.langBtn = makeRoundButton(this, 492, 38, 'flag_' + getLang(), () => this.openLanguageModal(), 56).setDepth(30);
+    this.langBtn.list[1].setDisplaySize(46, 46);
+
     // кнопка ускорения x2
     this.boostBtn = this.sideButton(534, 196, 'e_x2', () => this.onBoostClick());
     this.boostGlow = this.add.image(534, 196, 'spark').setTint(0x7dff9a).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(170, 170).setAlpha(0).setDepth(28);
@@ -304,10 +375,11 @@ export class PlayScene extends Phaser.Scene {
   refreshHud(force = false) {
     const d = this.d, now = Date.now();
     // счётчик
-    const txt = fmt(this.shownGel);
+    const txt = fmtGel(this.shownGel);
     if (force || this.gelTxt.text !== txt) {
-      this.gelTxt.setText(txt);
-      const total = 62 + 10 + this.gelTxt.width;
+      this.gelTxt.setText(txt).setScale(1);
+      if (this.gelTxt.width > 380) this.gelTxt.setScale(380 / this.gelTxt.width);
+      const total = 62 + 10 + this.gelTxt.width * this.gelTxt.scaleX;
       this.gelIcon.setX(-total / 2 + 31);
       this.gelTxt.setX(-total / 2 + 72);
     }
@@ -379,8 +451,9 @@ export class PlayScene extends Phaser.Scene {
     if (this.dirty) { this.cpsCache = Eco.cps(d, now); this.dirty = false; }
     // истечение временных эффектов меняет доход
 
-    if (dt > 3) this.handleAway(dt, false);
-    else if (dt > 0 && this.cpsCache > 0) { Eco.addGel(d, this.cpsCache * dt); }
+    // Начисляем только за реальное время игры. Свёрнутая вкладка, пауза на рекламе, сон устройства — не в счёт:
+    // длинный разрыв между кадрами засчитывается максимум как 1 секунда.
+    if (dt > 0 && this.cpsCache > 0) { Eco.addGel(d, this.cpsCache * Math.min(dt, 1)); }
 
     // анимация числа
     const diff = d.gel - this.shownGel;
@@ -418,7 +491,7 @@ export class PlayScene extends Phaser.Scene {
 
     // редкие тики
     this.textTimer += delta;
-    if (this.textTimer > 80) { this.textTimer = 0; this.refreshHud(); }
+    if (this.textTimer > 50) { this.textTimer = 0; this.refreshHud(); }
     this.slowTimer += delta;
     if (this.slowTimer > 250) { this.slowTimer = 0; this.dirty = true; this.panel.refresh(); this.checkEvolution(); }
     this.saveTimer += delta;
@@ -430,22 +503,8 @@ export class PlayScene extends Phaser.Scene {
   }
 
   persist(important) {
-    this.d.lastSeen = Date.now();
     YandexSDK.save(important);
     if (important) YandexSDK.flushCloud();
-  }
-
-  // Игрока не было: короткое отсутствие (реклама, свёрнутая вкладка) начисляем молча, длинное — окном
-  handleAway(sec, atStart) {
-    const d = this.d;
-    if (!(sec > 1)) return;
-    const res = Eco.offlineGain(d, sec);
-    if (res.silent || res.gain <= 0) {
-      if (res.gain > 0) Eco.addGel(d, res.gain);
-      if (!atStart || res.gain > 0) this.dirty = true;
-      return;
-    }
-    this.queueModal(() => this.openOfflineModal(res.gain, sec));
   }
 
   // =====================================================================
@@ -621,7 +680,7 @@ export class PlayScene extends Phaser.Scene {
     YandexSDK.gameplayStart();
     this.lastTick = Date.now();
   }
-  // Естественные паузы: после закрытия окна эволюции / рождения / оффлайн-дохода
+  // Естественные паузы: после закрытия окна эволюции / рождения / подарка
   afterNaturalPause() {
     this.time.delayedCall(700, () => { if (!this.modal && !this.shopOpen) this.showInterstitialNow(); });
   }
@@ -773,28 +832,6 @@ export class PlayScene extends Phaser.Scene {
     else if (natural) this.afterNaturalPause();
   }
 
-  openOfflineModal(gain, sec) {
-    const d = this.d;
-    return openModal(this, {
-      h: 600, title: t('offlineTitle'),
-      build: (c) => {
-        c.add(makeText(this, 0, -130, t('offlineText'), 26, '#e6dcff', { wrap: 460, sw: 4 }));
-        const val = makeText(this, 0, -50, '+' + fmt(gain), 54, '#ffffff', { ox: 0, sw: 8 });
-        const total = 64 + 12 + val.width;
-        c.add(this.add.image(-total / 2 + 32, -50, 'gel').setDisplaySize(64, 64));
-        val.setX(-total / 2 + 76);
-        c.add(val);
-        c.add(makeText(this, 0, 20, t('offlineTime', { t: fmtAway(sec) }), 22, '#bfb2ff', { sw: 4 }));
-      },
-      buttons: [
-        { label: t('claim'), kind: 'green', onClick: () => { Eco.addGel(d, gain); this.sfx('gem', 0.7); this.dirty = true; this.persist(true); } },
-        { label: t('claimX2'), kind: 'gold', icon: 'ic_video', size: 26, keepOpen: true,
-          onClick: (h) => this.rewarded(() => { Eco.addGel(d, gain * 2); this.dirty = true; this.persist(true); this.sfx('gem', 0.8); }).then((ok) => { if (ok) h.close(); }) }
-      ],
-      onClose: () => this.onModalClosed(true)
-    });
-  }
-
   // ---------- ежедневные награды ----------
   // Окно показывается, когда игрок уже освоился (intro пройдено) и нет других окон; проверка раз в минуту
   dailyTick() {
@@ -849,6 +886,29 @@ export class PlayScene extends Phaser.Scene {
   }
 
   // ---------- перерождение ----------
+  openLanguageModal() {
+    if (this.modal || this.shopOpen || YandexSDK.busy) return;
+    const cur = getLang();
+    this.queueModal(() => openModal(this, {
+      h: 470, title: t('language'), titleColors: ['#c6f3ff', '#4db8ff'],
+      buttons: [
+        ...LANGS.map((code) => ({
+          label: LANG_NAMES[code], kind: code === cur ? 'green' : 'blue', icon: 'flag_' + code, w: 420, h: 84, size: 32,
+          onClick: () => this.changeLanguage(code)
+        })),
+        { label: t('close'), kind: 'dark', w: 260, h: 64, size: 26, onClick: () => {} }
+      ],
+      onClose: () => this.onModalClosed(false)
+    }));
+  }
+  // Смена языка: сохраняем выбор и перезапускаем сцену, чтобы все надписи перестроились
+  changeLanguage(code) {
+    if (code === getLang()) return;
+    YandexSDK.setUserLang(code);
+    this.persist(true);
+    this.time.delayedCall(260, () => this.scene.restart());
+  }
+
   requestRebirth() {
     const d = this.d;
     const gain = Eco.essenceGain(d.runGel);

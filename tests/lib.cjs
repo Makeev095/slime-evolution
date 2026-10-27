@@ -94,16 +94,24 @@ async function launch(W, H, { query = '?debug', mode = 'dev', storage = null, mo
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// Клик по координатам дизайна (600x1000) — переводим в пиксели через камеру
-async function clickDesign(page, x, y, opts = {}) {
-  const p = await page.evaluate((x, y) => {
-    const cam = window.__slime.scene.cameras.main;
+// Координаты дизайна (600x1000) -> пиксели страницы. На широком экране магазин (y >= 612) рисует отдельная левая камера.
+async function designPoint(page, x, y) {
+  return page.evaluate((x, y) => {
+    const sc = window.__slime.scene;
+    const cam = sc.wide && y >= 612 ? sc.panelCam : sc.cameras.main;
     const cv = window.__game.canvas.getBoundingClientRect();
-    const sx = (x - cam.midPoint.x) * cam.zoom + cam.width / 2;
-    const sy = (y - cam.midPoint.y) * cam.zoom + cam.height / 2;
-    return { x: cv.left + sx, y: cv.top + sy };
+    return {
+      x: cv.left + cam.x + (x - cam.scrollX - cam.width / 2) * cam.zoom + cam.width / 2,
+      y: cv.top + cam.y + (y - cam.scrollY - cam.height / 2) * cam.zoom + cam.height / 2
+    };
   }, x, y);
+}
+async function clickDesign(page, x, y, opts = {}) {
+  const p = await designPoint(page, x, y);
   await page.mouse.click(p.x, p.y, opts);
 }
+// Геометрия магазина (совпадает с PANEL в src/ui/UpgradePanel.js)
+const PANEL = { TOP: 612, TABS_Y: 652, LIST_Y: 694, ROW_H: 112 };
+const rowY = (i) => PANEL.LIST_Y + PANEL.ROW_H * i + PANEL.ROW_H / 2;
 
-module.exports = { launch, sleep, clickDesign, ROOT };
+module.exports = { launch, sleep, clickDesign, designPoint, PANEL, rowY, ROOT };

@@ -7,7 +7,7 @@ import {
   drawEmoji, drawLock, drawSky, STAGE_ART
 } from './art.js';
 
-export const FONT = '"Trebuchet MS", "Segoe UI", Arial, sans-serif';
+export const FONT = 'Nunito, "Trebuchet MS", "Segoe UI", Arial, sans-serif';
 const TAU = Math.PI * 2;
 
 // ---------- Адаптивность ----------
@@ -88,6 +88,36 @@ export function buildTextureJobs(scene) {
     ctx.strokeStyle = '#ff4d4d'; ctx.lineWidth = 10; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(48, 48, 40, 0, TAU); ctx.moveTo(20, 20); ctx.lineTo(76, 76); ctx.stroke();
   });
+  // флаги для выбора языка (круглые)
+  const flag = (key, draw) => icon(key, 96, (ctx, s) => {
+    ctx.save(); ctx.beginPath(); ctx.arc(48, 48, 44, 0, TAU); ctx.clip();
+    draw(ctx);
+    ctx.restore();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(48, 48, 44, 0, TAU); ctx.stroke();
+  });
+  flag('flag_ru', (ctx) => {
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 96, 32);
+    ctx.fillStyle = '#1c57a5'; ctx.fillRect(0, 32, 96, 32);
+    ctx.fillStyle = '#d52b1e'; ctx.fillRect(0, 64, 96, 32);
+  });
+  flag('flag_en', (ctx) => {
+    ctx.fillStyle = '#012169'; ctx.fillRect(0, 0, 96, 96);
+    ctx.lineCap = 'butt';
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 18;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(96, 96); ctx.moveTo(96, 0); ctx.lineTo(0, 96); ctx.stroke();
+    ctx.strokeStyle = '#c8102e'; ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(96, 96); ctx.moveTo(96, 0); ctx.lineTo(0, 96); ctx.stroke();
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(38, 0, 20, 96); ctx.fillRect(0, 38, 96, 20);
+    ctx.fillStyle = '#c8102e'; ctx.fillRect(42, 0, 12, 96); ctx.fillRect(0, 42, 96, 12);
+  });
+  flag('flag_tr', (ctx) => {
+    ctx.fillStyle = '#e30a17'; ctx.fillRect(0, 0, 96, 96);
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(38, 48, 25, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#e30a17'; ctx.beginPath(); ctx.arc(46, 48, 20, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.beginPath();
+    for (let i = 0; i < 10; i++) { const r = i % 2 ? 5 : 12, a = -Math.PI / 2 + (i * Math.PI) / 5; ctx.lineTo(64 + Math.cos(a) * r, 48 + Math.sin(a) * r); }
+    ctx.closePath(); ctx.fill();
+  });
   icon('e_x2', 96, (ctx, s) => {
     ctx.font = 'bold 66px "Trebuchet MS",Arial,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.lineWidth = 9; ctx.strokeStyle = '#7a3d00'; ctx.strokeText('x2', 48, 52);
@@ -164,9 +194,9 @@ export function buildTextureJobs(scene) {
     put('sheet', cv);
   });
   const rowTex = (key, top, bot, stroke, alpha = 1) => jobs.push(() => {
-    const [cv, ctx] = makeCanvas(560, 88);
-    rr(ctx, 3, 3, 554, 82, 22);
-    const g = ctx.createLinearGradient(0, 0, 0, 88);
+    const [cv, ctx] = makeCanvas(568, 104);
+    rr(ctx, 3, 3, 562, 98, 28);
+    const g = ctx.createLinearGradient(0, 0, 0, 104);
     g.addColorStop(0, top); g.addColorStop(1, bot);
     ctx.globalAlpha = alpha; ctx.fillStyle = g; ctx.fill(); ctx.globalAlpha = 1;
     ctx.strokeStyle = stroke; ctx.lineWidth = 3; ctx.stroke();
@@ -202,7 +232,7 @@ export function makeText(scene, x, y, str, size, color = '#ffffff', o = {}) {
   const tx = scene.add.text(x, y, str, {
     fontFamily: FONT,
     fontSize: size + 'px',
-    fontStyle: 'bold',
+    fontStyle: '900',
     color,
     stroke: o.stroke || '#1b1048',
     strokeThickness: o.sw !== undefined ? o.sw : Math.max(3, Math.round(size / 8)),

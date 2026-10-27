@@ -39,12 +39,13 @@ export class BootScene extends Phaser.Scene {
     const step = (w) => { done += w; this.target = Math.min(1, done / total); };
 
     await YandexSDK.init(this.game);
-    this.title.setText(getLang() === 'ru' ? 'СЛАЙМ: ЭВОЛЮЦИЯ' : 'SLIME EVOLUTION');
-    gradientText(this.title, '#b9ffb0', '#2fd16a');
     this.status.setText(t('loading') + '…');
     step(3);
 
     await YandexSDK.loadData();
+    this.title.setText(t('gameTitle'));
+    gradientText(this.title, '#b9ffb0', '#2fd16a');
+    this.status.setText(t('loading') + '…');
     await YandexSDK.restorePurchases(); // подхватываем недообработанные покупки
     step(2);
 

@@ -2,8 +2,10 @@
 import assert from 'node:assert/strict';
 import { CONFIG, GENS } from '../src/config.js';
 import * as Eco from '../src/economy.js';
-import { fmt, fmtTime, fmtAway } from '../src/format.js';
+import { fmt, fmtGel, fmtInt, fmtTime, fmtAway } from '../src/format.js';
+import { LANGS, allKeys, setLang, getLang, lname, t } from '../src/i18n.js';
 import { defaultData } from '../src/yandexSDK.js';
+import { simulate } from './sim.js';
 
 let passed = 0;
 const test = (name, fn) => { try { fn(); passed++; console.log('  ok  ' + name); } catch (e) { console.error('  FAIL ' + name + '\n', e); process.exitCode = 1; } };
@@ -72,16 +74,10 @@ test('эволюция: стадии и прогресс', () => {
   assert.equal(Eco.evolutionProgress(1e20).next, -1);
 });
 
-test('оффлайн: коротко — молча и полностью, долго — 50% и лимит 2 часа', () => {
-  const d = fresh(); d.gens[1] = 10; // 10 червячков, x2
-  const rate = Eco.cps(d, 0);
-  const a = Eco.offlineGain(d, 60);
-  assert.ok(a.silent && Math.abs(a.gain - rate * 60) < 1e-6);
-  const b = Eco.offlineGain(d, 3600);
-  assert.ok(!b.silent && Math.abs(b.gain - rate * 3600 * 0.5) < 1e-6);
-  const c = Eco.offlineGain(d, 86400);
-  assert.ok(Math.abs(c.gain - rate * 7200 * 0.5) < 1e-6, 'лимит 2 ч');
-  assert.equal(Eco.offlineGain(d, -5).gain, 0);
+test('оффлайн-дохода нет: желе капает только пока игрок в игре', () => {
+  assert.equal(Eco.offlineGain, undefined, 'функции оффлайн-дохода быть не должно');
+  assert.equal(CONFIG.eco.offline, undefined);
+  assert.equal(defaultData().lastSeen, undefined);
 });
 
 test('перерождение: эссенция растёт корнем, сбрасывает прогресс, сохраняет стадию', () => {
@@ -89,9 +85,11 @@ test('перерождение: эссенция растёт корнем, сб
   d.runGel = 4e7; assert.equal(Eco.essenceGain(d.runGel), 0);
   assert.equal(Eco.applyRebirth(d), 0, 'рано');
   d.runGel = 5e7; assert.equal(Eco.essenceGain(5e7), 1);
-  assert.equal(Eco.essenceGain(2e8), 2);
+  assert.equal(Eco.essenceGain(5e7 * 8), 2);   // (8)^0.34 = 2.03
+  assert.ok(Eco.essenceGain(5e9) > Eco.essenceGain(5e8) && Eco.essenceGain(5e9) < 10 * Eco.essenceGain(5e8), 'рост эссенции медленнее линейного');
+  for (const k of [1, 2, 5, 17, 100]) assert.equal(Eco.essenceGain(Math.pow(k, 1 / CONFIG.eco.essence.power) * CONFIG.eco.essence.divisor), k, 'граница эссенции ' + k);
   assert.ok(Eco.essenceNeed(5e7) > 0);
-  d.gel = 1e9; d.allTime = 1e10; d.runGel = 2e8; d.gens[3] = 20; d.tapLevel = 7; d.gems = 33;
+  d.gel = 1e9; d.allTime = 1e10; d.runGel = 4e8; d.gens[3] = 20; d.tapLevel = 7; d.gems = 33;
   const g = Eco.applyRebirth(d);
   assert.equal(g, 2); assert.equal(d.essence, 2); assert.equal(d.rebirths, 1);
   assert.equal(d.gel, 0); assert.equal(d.runGel, 0); assert.equal(d.tapLevel, 0);
@@ -193,6 +191,59 @@ test('темп игры: первая эволюция < 2 мин, вторая 
   assert.ok(log[1] < 120, 'первая эволюция должна случиться быстро');
   assert.ok(log[2] < 12 * 60, 'вторая эволюция за 12 минут');
   assert.ok(log[3] < 90 * 60, 'третья эволюция за 90 минут');
+});
+
+test('языки: во всех языках есть все ключи, нет пустых и «забытых» плейсхолдеров', () => {
+  const ru = allKeys('ru');
+  assert.deepEqual([...LANGS], ['ru', 'en', 'tr']);
+  for (const lang of LANGS) {
+    assert.deepEqual(allKeys(lang).sort(), [...ru].sort(), 'набор ключей ' + lang);
+    setLang(lang);
+    for (const k of ru) {
+      const s = t(k);
+      assert.ok(s && s !== k, `${lang}.${k} пустой`);
+      const vars = (t(k).match(/\{(\w+)\}/g) || []).sort().join();
+      setLang('ru'); const varsRu = (t(k).match(/\{(\w+)\}/g) || []).sort().join(); setLang(lang);
+      assert.equal(vars, varsRu, `переменные в ${lang}.${k}`);
+    }
+  }
+  for (const G of GENS) for (const l of LANGS) assert.ok(G[l], `название ${G.id} (${l})`);
+  for (const S of CONFIG.eco.stages) for (const l of LANGS) assert.ok(S[l], `стадия ${S.en} (${l})`);
+  assert.equal(setLang('tr-TR'), 'tr'); assert.equal(setLang('en_US'), 'en'); assert.equal(setLang('uk'), 'ru'); assert.equal(setLang('de'), 'en'); assert.equal(setLang(undefined), 'ru');
+  setLang('tr'); assert.equal(lname(GENS[0]), 'Damlatıcı');
+  setLang('ru');
+});
+
+test('счётчик желе: две цифры после запятой, разряды, сокращения; ничего не округляется вверх', () => {
+  setLang('ru');
+  assert.equal(fmtGel(0), '0,00'); assert.equal(fmtGel(0.1), '0,10'); assert.equal(fmtGel(1.239), '1,23');
+  assert.equal(fmtGel(12345.678), '12\u00a0345,67'); assert.equal(fmtGel(99999.999), '99\u00a0999,99');
+  assert.equal(fmtGel(123456.9), '123\u00a0456'); assert.equal(fmtGel(2.5e9), '2,5 млрд');
+  assert.equal(fmtInt(1800), '1\u00a0800');
+  setLang('en'); assert.equal(fmtGel(12345.678), '12,345.67'); assert.equal(fmtGel(0.5), '0.50'); assert.equal(fmtInt(1800), '1,800');
+  setLang('tr'); assert.equal(fmtGel(12345.678), '12.345,67'); assert.equal(fmt(1500), '1,5 bin'); assert.equal(fmt(2.5e6), '2,5 Mn');
+  assert.equal(fmtAway(7500), '2 sa 5 dk');
+  setLang('ru');
+  // капает по 0,1 в секунду: за 10 «тиков» по 0,1 — монотонно, без скачков
+  let prev = -1; for (let i = 0; i < 50; i++) { const v = parseFloat(fmtGel(i * 0.037).replace(/\u00a0/g, '').replace(',', '.')); assert.ok(v >= prev); prev = v; }
+});
+
+test('реклама: пауза 2 минуты, на поздних стадиях короче, но не короче минуты', () => {
+  const L = CONFIG.ads.intervalByStageMs;
+  assert.equal(L.length, CONFIG.eco.stages.length);
+  assert.equal(L[0], 120000);
+  for (let i = 1; i < L.length; i++) assert.ok(L[i] <= L[i - 1], 'интервал не растёт со стадией');
+  assert.ok(L[L.length - 1] >= 60000 && L[L.length - 1] < 120000);
+  assert.ok(L.every((x) => x <= CONFIG.ads.interstitialIntervalMs));
+});
+
+test('финал: дальние производители очень дорогие, ранние открываются быстро', () => {
+  const { ev } = simulate(60, { log: false });
+  assert.ok(ev.first_drop < 1 && ev.first_worm < 3 && ev.first_mushroom < 6, 'первые уровни быстро');
+  assert.ok(ev.first_star > 15 * 60, 'звезда не раньше 15 часов активной игры');
+  assert.ok(ev.first_hole === undefined || ev.first_hole > 40 * 60, 'чёрная дыра не раньше 40 часов активной игры');
+  assert.ok(GENS[10].baseCost >= 1e13 && GENS[11].baseCost >= 1e15, 'цены последних двух гигантские');
+  for (let i = 1; i < GENS.length; i++) assert.ok(GENS[i].baseCost > GENS[i - 1].baseCost * 2, 'цены растут');
 });
 
 console.log(`\n${passed} тестов пройдено`);

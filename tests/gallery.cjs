@@ -2,7 +2,7 @@
 const { launch, sleep, clickDesign } = require('./lib.cjs');
 const fs = require('fs');
 
-const STAGE_AT = [0, 300, 2e4, 1e6, 6e7, 4e9, 3e11];
+const STAGE_AT = [0, 300, 2e4, 1e6, 6e7, 4e9, 5e12];
 function seed(stage, extra = {}) {
   const now = new Date();
   const key = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
@@ -42,8 +42,7 @@ function seed(stage, extra = {}) {
     await page.evaluate(() => window.__slime.scene.panel.setTab(2)); await shot('rebirth', 300);
     await page.evaluate(() => window.__slime.scene.panel.setTab(0));
     await page.evaluate(() => window.__slime.scene.spawnGolden()); await shot('golden', 2500);
-    await page.evaluate(() => { const s = window.__slime.scene; s.removeGolden(); s.queueModal(() => s.openOfflineModal(1.23e6, 5400)); }); await shot('offline');
-    await closeModal();
+    await page.evaluate(() => window.__slime.scene.removeGolden());
     await page.evaluate(() => { const s = window.__slime.scene; s.queueModal(() => s.openDailyModal({ day: 3, streak: 3, claimable: true })); }); await shot('daily');
     await page.evaluate(() => { const s = window.__slime.scene; s.dailyPending = false; }); await closeModal();
     await page.evaluate(() => { const s = window.__slime.scene; s.queueModal(() => s.openEvolutionModal(3, 15)); }); await shot('evolution', 1400);

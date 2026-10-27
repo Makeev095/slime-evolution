@@ -1,7 +1,7 @@
 import { CONFIG, DESIGN, t } from '../config.js';
 import { YandexSDK } from '../yandexSDK.js';
 import { Sfx } from '../audio.js';
-import { fmt } from '../format.js';
+import { fmt, fmtInt } from '../format.js';
 import { fitCamera, makeText, gradientText, makeButton, toast, floatText } from '../ui.js';
 
 // Магазин внутриигровых покупок. Открывается поверх игры (scene.launch); игровая сцена продолжает считать доход,
@@ -76,7 +76,7 @@ export class ShopScene extends Phaser.Scene {
     let name, sub, subColor = '#7dff9a';
     if (prod.type === 'noads') { name = t('noAds'); sub = t('noAdsDesc'); subColor = '#cbbfff'; }
     else if (prod.type === 'x2') { name = t('x2Forever'); sub = t('x2Desc'); subColor = '#cbbfff'; }
-    else { name = t('gemsN', { n: fmt(prod.gems) }); sub = prod.badge || ''; }
+    else { name = t('gemsN', { n: fmtInt(prod.gems) }); sub = prod.badge || ''; }
     const nameTx = makeText(this, W / 2 - 165, y - 16, name, 24, '#ffffff', { ox: 0, sw: 4 });
     if (nameTx.width > 190) nameTx.setScale(190 / nameTx.width);
     const subTx = makeText(this, W / 2 - 165, y + 16, sub, 15, subColor, { ox: 0, sw: 3, shadow: false, wrap: 200, align: 'left' });

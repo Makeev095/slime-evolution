@@ -2,7 +2,8 @@
 // Режимы: 'yandex' (настоящий SDK), 'dev' (SDK нет — локальная разработка, реклама имитируется),
 //         'offline' (SDK подключён, но init упал — рекламы нет, игра работает).
 
-import { CONFIG, GENS, setLang } from './config.js';
+import { CONFIG, GENS, LANGS, setLang } from './config.js';
+import { stageFor } from './economy.js';
 
 export const defaultData = () => ({
   v: 1,
@@ -16,7 +17,6 @@ export const defaultData = () => ({
   essence: 0,
   rebirths: 0,
   boostUntil: 0, boostMult: 2, goldUntil: 0, stormUntil: 0, // временные эффекты (метки времени, ms)
-  lastSeen: 0,        // для оффлайн-дохода
   giftAt: 0,          // когда снова доступен подарок за видео
   gemVideoAt: 0,      // когда снова доступны кристаллы за видео
   seenStage: 0,       // до какой стадии уже показывали эволюцию
@@ -24,6 +24,7 @@ export const defaultData = () => ({
   dailyStreak: 0,
   intro: false,       // подсказка «Тапай!» уже пройдена
   sound: true,
+  lang: '',           // язык, выбранный игроком вручную ('' — как в Яндексе)
   noAds: false,       // куплено «Без рекламы»
   x2: false,          // куплено «Доход x2 навсегда»
   tokens: [],         // обработанные purchaseToken (защита от двойного начисления)
@@ -41,6 +42,7 @@ function normalize(raw) {
     d[k] = Math.min(d[k], 1e300);
   }
   if (!Array.isArray(d.tokens)) d.tokens = [];
+  if (!LANGS.includes(d.lang)) d.lang = '';
   return d;
 }
 
@@ -141,8 +143,15 @@ class YandexSDKManager {
     // Побеждает более свежий прогресс — игрок не теряет данные ни при логине, ни при выходе
     const pick = [cloud, local].filter(Boolean).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
     this.data = normalize(pick);
+    if (this.data.lang) setLang(this.data.lang);   // ручной выбор языка важнее языка платформы
     this.applyAudioState();
     return this.data;
+  }
+
+  // Игрок выбрал язык кнопкой с флагом
+  setUserLang(code) {
+    this.data.lang = setLang(code);
+    this.save(true);
   }
 
   // Локально сохраняем всегда мгновенно. В облако: важные события — быстро, обычный автосейв — редко.
@@ -278,7 +287,13 @@ class YandexSDKManager {
   // ---------- Реклама ----------
   canShowInterstitial() {
     return this.mode !== 'offline' && !this.busy && !this.data.noAds &&
-      Date.now() - this.lastAdAt >= CONFIG.ads.interstitialIntervalMs;
+      Date.now() - this.lastAdAt >= this.adInterval();
+  }
+  // Пауза между межстраничными роликами: 2 минуты, а на поздних стадиях игры — короче (см. CONFIG.ads.intervalByStageMs)
+  adInterval() {
+    const list = CONFIG.ads.intervalByStageMs;
+    const stage = this.data ? stageFor(this.data.allTime) : 0;
+    return Math.min(CONFIG.ads.interstitialIntervalMs, list[Math.min(stage, list.length - 1)]);
   }
   canShowRewarded() { return this.mode !== 'offline' && !this.busy; }
 

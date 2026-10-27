@@ -38,6 +38,7 @@ const scenarios = {
     const d = await state(page);
     ok('20 тапов дали ≥ 20 желе и счётчик тапов', d.taps === 20 && d.gel >= 20, { taps: d.taps, gel: d.gel });
     ok('подсказка скрылась после первых тапов', !(await S(page, () => window.__slime.scene.handText.visible)));
+    ok('полоска эволюции растёт от тапов', await S(page, () => parseFloat(window.__slime.scene.evoMid.text.replace(',', '.')) > 5), await S(page, () => window.__slime.scene.evoMid.text));
     ok('быстрые тапы включили «ярость»', await S(page, () => window.__slime.scene.isFrenzy()));
     ok('в ярости слайм «довольный» (текстура)', await S(page, () => window.__slime.scene.slime.texture.key.endsWith('_1')));
     // тап вне слайма (по HUD) не даёт желе

@@ -419,7 +419,7 @@ export class PlayScene extends Phaser.Scene {
 
     // эволюция
     const pr = Eco.evolutionProgress(d.allTime);
-    const key = pr.stage + ':' + Math.round(pr.ratio * 500);
+    const key = pr.stage + ':' + Math.round(pr.ratio * 1000);
     if (force || key !== this.evoCache) {
       this.evoCache = key;
       const g = this.evoBar; g.clear();
@@ -435,7 +435,8 @@ export class PlayScene extends Phaser.Scene {
       this.evoLeft.setText(cur);
       if (pr.next >= 0) {
         this.evoRight.setText(lname(E.stages[pr.next]));
-        this.evoMid.setText(Math.floor(pr.ratio * 100) + '%');
+        const pct = Math.min(99.9, Math.floor(pr.ratio * 1000) / 10).toFixed(1);
+        this.evoMid.setText((getLang() === 'en' ? pct : pct.replace('.', ',')) + '%');
       } else { this.evoRight.setText(''); this.evoMid.setText(t('maxStage')); }
     }
   }

@@ -70,7 +70,10 @@ test('эволюция: стадии и прогресс', () => {
   assert.equal(Eco.stageFor(300), 1);
   assert.equal(Eco.stageFor(1e20), CONFIG.eco.stages.length - 1);
   const p = Eco.evolutionProgress(150);
-  assert.equal(p.stage, 0); assert.equal(p.next, 1); assert.ok(Math.abs(p.ratio - 0.5) < 1e-9);
+  assert.equal(p.stage, 0); assert.equal(p.next, 1); assert.ok(Math.abs(p.ratio - Math.log(151) / Math.log(301)) < 1e-9);
+  // каждый тап заметно двигает полоску на любой стадии
+  const a = Eco.evolutionProgress(5e8).ratio, b = Eco.evolutionProgress(5e8 + 1e6).ratio;
+  assert.ok(b > a && b - a > 0.0003);
   assert.equal(Eco.evolutionProgress(1e20).next, -1);
 });
 

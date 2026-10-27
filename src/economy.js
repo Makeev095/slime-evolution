@@ -78,7 +78,10 @@ export function evolutionProgress(allTime) {
   const stage = stageFor(allTime);
   if (stage >= E.stages.length - 1) return { stage, next: -1, ratio: 1, need: 0 };
   const from = E.stages[stage].at, to = E.stages[stage + 1].at;
-  return { stage, next: stage + 1, ratio: Math.min(1, (allTime - from) / (to - from)), need: to - allTime };
+  // Шкала логарифмическая: пороги растут в десятки раз, и при линейной шкале тапы почти не двигали бы полоску
+  const f = (x) => Math.log(1 + Math.max(0, x));
+  const ratio = Math.max(0, Math.min(1, (f(allTime) - f(from)) / (f(to) - f(from))));
+  return { stage, next: stage + 1, ratio, need: to - allTime };
 }
 
 // ---------- Перерождение ----------

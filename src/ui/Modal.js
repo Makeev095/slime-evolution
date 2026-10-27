@@ -8,9 +8,12 @@ export function openModal(scene, opts) {
   const H = opts.h || 620, W = 540;
   const depth = opts.depth || 500;
   const root = scene.add.container(0, 0).setDepth(depth);
-  const dim = scene.add.rectangle(DESIGN.W / 2, 500, 6000, 6000, 0x0a0420, 0).setInteractive();
+  // окно по центру ВИДИМОЙ области (на широком экране она короче 1000) и уменьшается, если не помещается
+  const cy = scene.visBottom ? (scene.visTop + scene.visBottom) / 2 : 500;
+  const fit = scene.visBottom ? Math.min(1, (scene.visBottom - scene.visTop - 16) / H) : 1;
+  const dim = scene.add.rectangle(DESIGN.W / 2, cy, 6000, 6000, 0x0a0420, 0).setInteractive();
   scene.tweens.add({ targets: dim, fillAlpha: 0.78, duration: 180 });
-  const c = scene.add.container(DESIGN.W / 2, 500);
+  const c = scene.add.container(DESIGN.W / 2, cy);
   root.add([dim, c]);
 
   c.add(scene.add.image(0, 0, 'panel').setDisplaySize(W, H));
@@ -39,7 +42,7 @@ export function openModal(scene, opts) {
   }
 
   c.setScale(0.7).setAlpha(0);
-  scene.tweens.add({ targets: c, scale: 1, alpha: 1, duration: 260, ease: 'Back.Out' });
+  scene.tweens.add({ targets: c, scale: fit, alpha: 1, duration: 260, ease: 'Back.Out' });
 
   let closed = false;
   const handle = {
@@ -48,7 +51,7 @@ export function openModal(scene, opts) {
       if (closed) return;
       closed = true;
       scene.tweens.add({
-        targets: c, scale: 0.8, alpha: 0, duration: 160,
+        targets: c, scale: 0.8 * fit, alpha: 0, duration: 160,
         onComplete: () => { root.destroy(); if (opts.onClose) opts.onClose(); }
       });
       scene.tweens.add({ targets: dim, fillAlpha: 0, duration: 160 });

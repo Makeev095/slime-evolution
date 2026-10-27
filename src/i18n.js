@@ -22,7 +22,7 @@ const I18N = {
     x2Forever: 'Доход x2 навсегда', x2Desc: 'Весь доход и тапы удваиваются', ownedShort: 'КУПЛЕНО', close: 'ЗАКРЫТЬ',
     payUnavailable: 'Покупки сейчас недоступны', purchased: 'Спасибо за покупку!', purchaseFail: 'Покупка не удалась', shopLoading: 'Загрузка товаров…',
     adFail: 'Видео сейчас недоступно', adSoon: 'Видео через {n}…', ok: 'ОК', thanks: 'Спасибо!',
-    gameTitle: 'СЛАЙМ: ЭВОЛЮЦИЯ', language: 'Язык', tabNew: 'Новое', gelPerTap: '+{n}', soundOn: 'Звук', maxed: 'МАКС'
+    paused: 'Пауза: желе капает, только пока ты в игре. Нажми на экран!', gameTitle: 'СЛАЙМ: ЭВОЛЮЦИЯ', language: 'Язык', tabNew: 'Новое', gelPerTap: '+{n}', soundOn: 'Звук', maxed: 'МАКС'
   },
   en: {
     loading: 'Loading', tapHint: 'Tap the slime!', perSec: '{n}/sec',
@@ -44,7 +44,7 @@ const I18N = {
     x2Forever: 'Income x2 forever', x2Desc: 'All income and taps doubled', ownedShort: 'OWNED', close: 'CLOSE',
     payUnavailable: 'Purchases are unavailable right now', purchased: 'Thank you!', purchaseFail: 'Purchase failed', shopLoading: 'Loading products…',
     adFail: 'Video unavailable right now', adSoon: 'Video in {n}…', ok: 'OK', thanks: 'Thanks!',
-    gameTitle: 'SLIME EVOLUTION', language: 'Language', tabNew: 'New', gelPerTap: '+{n}', soundOn: 'Sound', maxed: 'MAX'
+    paused: 'Paused: jelly only drips while you are in the game. Tap the screen!', gameTitle: 'SLIME EVOLUTION', language: 'Language', tabNew: 'New', gelPerTap: '+{n}', soundOn: 'Sound', maxed: 'MAX'
   },
   tr: {
     loading: 'Yükleniyor', tapHint: "Slime'a dokun!", perSec: '{n}/sn',
@@ -66,7 +66,7 @@ const I18N = {
     x2Forever: 'Gelir x2 kalıcı', x2Desc: 'Tüm gelir ve dokunuşlar ikiye katlanır', ownedShort: 'ALINDI', close: 'KAPAT',
     payUnavailable: 'Satın alma şu an kullanılamıyor', purchased: 'Satın aldığın için teşekkürler!', purchaseFail: 'Satın alma başarısız', shopLoading: 'Ürünler yükleniyor…',
     adFail: 'Video şu an kullanılamıyor', adSoon: 'Video {n} sn sonra…', ok: 'TAMAM', thanks: 'Teşekkürler!',
-    gameTitle: 'SLIME EVRİMİ', language: 'Dil', tabNew: 'Yeni', gelPerTap: '+{n}', soundOn: 'Ses', maxed: 'MAKS'
+    paused: 'Duraklatıldı: jöle sadece oyundayken birikir. Ekrana dokun!', gameTitle: 'SLIME EVRİMİ', language: 'Dil', tabNew: 'Yeni', gelPerTap: '+{n}', soundOn: 'Ses', maxed: 'MAKS'
   }
 };
 

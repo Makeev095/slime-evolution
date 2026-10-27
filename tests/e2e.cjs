@@ -630,6 +630,75 @@ const scenarios = {
     await browser.close();
   },
 
+  // ---------------------------------------------------------------- желе не капает, пока игрок не в игре
+  async away() {
+    const gens = [20, 10, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const { browser, page, errors } = await launch(540, 960, { storage: seed({ gel: 10, runGel: 10, allTime: 10, gens, gemVideoAt: 0 }) });
+    await sleep(500);
+    const gel = () => S(page, () => window.__slime.scene.d.gel);
+    const cps = await S(page, () => window.__slime.Eco.cps(window.__slime.scene.d, 0));
+    let a = await gel(); await sleep(700); let b = await gel();
+    ok('в игре желе капает', b - a > cps * 0.4, { a, b, cps });
+    // окно потеряло фокус (ушёл на другое окно / монитор)
+    await S(page, () => window.dispatchEvent(new Event('blur')));
+    await sleep(100); a = await gel(); await sleep(1500); b = await gel();
+    ok('окно без фокуса: желе не капает', b === a, { a, b });
+    ok('показана пауза', await S(page, () => window.__slime.scene.pauseBanner.visible === true));
+    ok('в паузе не показываем рекламу и золотые пузыри', await S(page, () => { const s = window.__slime.scene; s.goldenAt = 0; s.lastTapAt = 0; window.__slime.YandexSDK.lastAdAt = 0; s.adTick(); s.goldenTick(); return !s.countdown && !s.golden; }));
+    // вернулся кликом
+    await clickDesign(page, 300, 400); await sleep(100);
+    a = await gel(); await sleep(700); b = await gel();
+    ok('после клика желе снова капает, без скачка за время паузы', b - a > cps * 0.4 && b - a < cps * 1.5 + 5, { a, b });
+    ok('пауза скрыта', await S(page, () => window.__slime.scene.pauseBanner.visible === false));
+    // вкладка скрыта
+    await S(page, () => { Object.defineProperty(document, 'hidden', { get: () => true, configurable: true }); document.dispatchEvent(new Event('visibilitychange')); });
+    await sleep(100); a = await gel(); await sleep(1500); b = await gel();
+    ok('вкладка скрыта: желе не капает', b === a, { a, b });
+    await S(page, () => { Object.defineProperty(document, 'hidden', { get: () => false, configurable: true }); document.dispatchEvent(new Event('visibilitychange')); });
+    await sleep(100); a = await gel(); await sleep(700); b = await gel();
+    ok('вернулся на вкладку: капает дальше, без скачка', b - a > cps * 0.4 && b - a < cps * 1.5 + 5, { a, b });
+    // фокус вернулся сам
+    await S(page, () => window.dispatchEvent(new Event('blur'))); await sleep(200);
+    await S(page, () => window.dispatchEvent(new Event('focus'))); await sleep(100);
+    a = await gel(); await sleep(600); b = await gel();
+    ok('событие focus возобновляет начисление', b - a > cps * 0.3, { a, b });
+    ok('нет ошибок консоли', errors.length === 0, errors);
+    await browser.close();
+  },
+
+  // ---------------------------------------------------------------- окна помещаются на любых экранах
+  async modals_fit() {
+    for (const [W, H, mob] of [[540, 960, false], [360, 640, true], [1280, 720, false], [800, 360, true], [1920, 1080, false]]) {
+      const { browser, page, errors } = await launch(W, H, { storage: seed({ gel: 5e8, runGel: 4e8, allTime: 4e8, gems: 30, seenStage: 4, gens: [10, 5, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0], tapLevel: 5 }), mobile: mob });
+      await sleep(600);
+      const measure = () => S(page, () => {
+        const s = window.__slime.scene, m = s.modal; if (!m || m === true) return null;
+        const b = m.container.getBounds();
+        const kids = m.container.list.filter((o) => o.type === 'Text');
+        const btnTops = m.buttons.map((x) => x.getBounds().top);
+        const textBottoms = m.container.list.filter((o) => o.type === 'Text').map((o) => o.getBounds().bottom);
+        return { top: b.top, bottom: b.bottom, vt: s.visTop, vb: s.visBottom, firstBtnTop: Math.min(...btnTops), lastTextBottomAboveBtn: Math.max(...textBottoms.filter((y) => y < Math.min(...btnTops) + 4)) , texts: kids.length };
+      });
+      await S(page, () => window.__slime.scene.openLanguageModal()); await sleep(700);
+      let m = await measure();
+      ok(`${W}x${H}: окно выбора языка в видимой области`, m && m.top >= m.vt - 1 && m.bottom <= m.vb + 1, m);
+      await press(page, 'window.__slime.scene.modal.buttons[3]'); await modalGone(page); await sleep(200);
+      await S(page, () => window.__slime.scene.requestRebirth()); await sleep(700);
+      m = await measure();
+      ok(`${W}x${H}: окно перерождения в видимой области`, m && m.top >= m.vt - 1 && m.bottom <= m.vb + 1, m);
+      // текст вопроса не заходит на кнопки
+      const ov = await S(page, () => {
+        const mm = window.__slime.scene.modal, c = mm.container;
+        const q = c.list.filter((o) => o.type === 'Text').find((o) => /эссенц/i.test(o.text));
+        const top = Math.min(...mm.buttons.map((x) => x.getBounds().top));
+        return q ? { qBottom: q.getBounds().bottom, btnTop: top } : null;
+      });
+      ok(`${W}x${H}: вопрос перерождения не перекрывает кнопки`, ov && ov.qBottom <= ov.btnTop + 1, ov);
+      ok(`${W}x${H}: нет ошибок консоли`, errors.length === 0, errors);
+      await browser.close();
+    }
+  },
+
   // ---------------------------------------------------------------- интервал рекламы по стадиям
   async ad_interval() {
     const { browser, page, errors } = await launch(540, 960, { storage: seed({ allTime: 1, seenStage: 0 }) });

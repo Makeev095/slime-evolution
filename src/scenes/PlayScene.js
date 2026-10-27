@@ -73,12 +73,22 @@ export class PlayScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-SPACE', () => this.tapSlime(SLIME_X, SLIME_BOTTOM - 130, true));
     this.input.keyboard.on('keydown-ENTER', () => this.tapSlime(SLIME_X, SLIME_BOTTOM - 130, true));
     this.input.once('pointerdown', () => { Sfx.startMusic(this.game); });
+    // «Игрок в игре»: вкладка видима и окно в фокусе. Иначе желе не капает, реклама и бонусы не появляются.
+    this.away = document.hidden;
+    const leave = () => { this.away = true; };
+    const comeBack = () => { if (!document.hidden && this.away) { this.away = false; this.lastTick = Date.now(); } };
     document.addEventListener('visibilitychange', this._onVis = () => {
-      if (document.hidden) { this.persist(true); YandexSDK.gameplayStop(); }
+      if (document.hidden) { leave(); this.persist(true); YandexSDK.gameplayStop(); } else comeBack();
     });
+    window.addEventListener('blur', this._onBlur = leave);
+    window.addEventListener('focus', this._onFocus = comeBack);
     window.addEventListener('pagehide', this._onHide = () => this.persist(true));
+    this.input.on('pointerdown', comeBack);
+    this.input.keyboard.on('keydown', comeBack);
     this.events.once('shutdown', () => {
       document.removeEventListener('visibilitychange', this._onVis);
+      window.removeEventListener('blur', this._onBlur);
+      window.removeEventListener('focus', this._onFocus);
       window.removeEventListener('pagehide', this._onHide);
     });
 
@@ -138,6 +148,7 @@ export class PlayScene extends Phaser.Scene {
       mc.setViewport(0, 0, w, h);
       const z = Math.min(w / DESIGN.W, h / DESIGN.H);
       mc.setZoom(z); mc.centerOn(DESIGN.W / 2, DESIGN.H / 2);
+      this.visTop = DESIGN.H / 2 - h / (2 * z);
       this.visBottom = DESIGN.H / 2 + h / (2 * z);
       this.panel.setListHeight(this.visBottom - P.LIST_Y - 4);
     } else {
@@ -150,6 +161,7 @@ export class PlayScene extends Phaser.Scene {
       mc.setViewport(pw, 0, vw, h);
       const z = Math.min(vw / DESIGN.W, h / 640);
       mc.setZoom(z); mc.centerOn(DESIGN.W / 2, h / (2 * z));
+      this.visTop = 0;
       this.visBottom = h / z;
       this.panel.setListHeight(h / zp - (P.LIST_Y - y0) - 4);
     }
@@ -354,6 +366,9 @@ export class PlayScene extends Phaser.Scene {
     this.evoMid = makeText(this, 300, 596, '', 17, '#ffffff', { sw: 4, shadow: false }).setDepth(15);
     this.evoCache = '';
 
+    // пауза: игрок не в игре — желе не капает
+    this.pauseBanner = makeText(this, 300, 340, t('paused'), 36, '#ffffff', { wrap: 500, sw: 8 }).setDepth(190).setVisible(false);
+
     // предупреждение о рекламе
     this.adBanner = makeText(this, 300, 250, '', 34, '#ffffff', { sw: 8 }).setDepth(200).setVisible(false);
   }
@@ -451,9 +466,11 @@ export class PlayScene extends Phaser.Scene {
     if (this.dirty) { this.cpsCache = Eco.cps(d, now); this.dirty = false; }
     // истечение временных эффектов меняет доход
 
-    // Начисляем только за реальное время игры. Свёрнутая вкладка, пауза на рекламе, сон устройства — не в счёт:
+    // Начисляем только за реальное время игры: вкладка видима и окно в фокусе. Пауза на рекламе, сон устройства — не в счёт:
     // длинный разрыв между кадрами засчитывается максимум как 1 секунда.
-    if (dt > 0 && this.cpsCache > 0) { Eco.addGel(d, this.cpsCache * Math.min(dt, 1)); }
+    const present = !this.away && !document.hidden;
+    if (present && dt > 0 && this.cpsCache > 0) { Eco.addGel(d, this.cpsCache * Math.min(dt, 1)); }
+    this.pauseBanner.setVisible(this.away && !document.hidden);
 
     // анимация числа
     const diff = d.gel - this.shownGel;
@@ -650,6 +667,7 @@ export class PlayScene extends Phaser.Scene {
 
   // Межстраничная реклама только в «безопасные» моменты: игрок не тапает, нет окон, прошло ≥ 2 минут
   adTick() {
+    if (this.away) { this.cancelCountdown(); return; }
     if (this.countdown || this.modal || this.shopOpen) return;
     if (!YandexSDK.canShowInterstitial()) return;
     if (Date.now() - this.lastTapAt < CONFIG.ads.idleBeforeAdMs) return;
@@ -686,7 +704,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   syncGameplay() {
-    const active = !this.modal && !this.shopOpen && !YandexSDK.busy && !document.hidden;
+    const active = !this.modal && !this.shopOpen && !YandexSDK.busy && !document.hidden && !this.away;
     if (active) YandexSDK.gameplayStart(); else YandexSDK.gameplayStop();
   }
 
@@ -695,7 +713,7 @@ export class PlayScene extends Phaser.Scene {
   // =====================================================================
   goldenTick() {
     const now = Date.now();
-    if (this.golden || this.modal || this.shopOpen) return;
+    if (this.golden || this.modal || this.shopOpen || this.away) return;
     if (now < this.goldenAt) return;
     this.spawnGolden();
   }
@@ -836,7 +854,7 @@ export class PlayScene extends Phaser.Scene {
   // Окно показывается, когда игрок уже освоился (intro пройдено) и нет других окон; проверка раз в минуту
   dailyTick() {
     const now = Date.now();
-    if (this.modal || this.dailyPending || !this.d.intro) return;
+    if (this.modal || this.dailyPending || !this.d.intro || this.away) return;
     if (now - this.dailyChecked < 60000) return;
     this.dailyChecked = now;
     const st = Eco.dailyStatus(this.d, now);
@@ -890,7 +908,7 @@ export class PlayScene extends Phaser.Scene {
     if (this.modal || this.shopOpen || YandexSDK.busy) return;
     const cur = getLang();
     this.queueModal(() => openModal(this, {
-      h: 470, title: t('language'), titleColors: ['#c6f3ff', '#4db8ff'],
+      h: 520, title: t('language'), titleColors: ['#c6f3ff', '#4db8ff'],
       buttons: [
         ...LANGS.map((code) => ({
           label: LANG_NAMES[code], kind: code === cur ? 'green' : 'blue', icon: 'flag_' + code, w: 420, h: 84, size: 32,
@@ -915,10 +933,10 @@ export class PlayScene extends Phaser.Scene {
     if (this.modal) return;
     if (gain < 1) { this.notEnough('gel'); return; }
     this.queueModal(() => openModal(this, {
-      h: 440, title: t('rebirthTitle'), titleColors: ['#f0d6ff', '#c07bff'],
+      h: 560, title: t('rebirthTitle'), titleColors: ['#f0d6ff', '#c07bff'],
       build: (c) => {
-        c.add(this.add.image(0, -40, 'e_sparkle').setDisplaySize(90, 90));
-        c.add(makeText(this, 0, 50, t('rebirthConfirm', { n: gain }), 26, '#ffffff', { wrap: 460, sw: 5 }));
+        c.add(this.add.image(0, -112, 'e_sparkle').setDisplaySize(84, 84));
+        c.add(makeText(this, 0, -12, t('rebirthConfirm', { n: gain }), 25, '#ffffff', { wrap: 470, sw: 5 }));
       },
       buttons: [
         { label: t('yes'), kind: 'purple', w: 260, onClick: () => this.doRebirth() },

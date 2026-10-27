@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Слайм: Эволюция</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1040;
+      touch-action: none; overscroll-behavior: none; -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+    #game-container { position: fixed; inset: 0; background: #1a1040; }
+    canvas { display: block; outline: none; }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <!-- Официальный Yandex Games SDK. Для игры-архива в консоли Яндекса нужен ОТНОСИТЕЛЬНЫЙ путь /sdk.js (требование модерации).
+       Локально файла нет — игра переходит в dev-режим (реклама и покупки имитируются). Должен идти перед игровыми скриптами. -->
+  <script src="/sdk.js"></script>
+  <!-- Phaser 3. build.sh подменяет CDN на локальный phaser.min.js внутри архива. -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

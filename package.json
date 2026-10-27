@@ -1,0 +1,11 @@
+{
+  "name": "slime-evolution",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Слайм: Эволюция — кликер для Яндекс Игр (Phaser 3)",
+  "scripts": {
+    "test": "node tests/economy.test.js",
+    "build": "sh build.sh"
+  }
+}

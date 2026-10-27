@@ -62,7 +62,7 @@ const MOCK_SDK = `
 })();
 `;
 
-async function launch(W, H, { query = '?debug', mode = 'dev', storage = null, mobile = false, cloud = null, purchases = null, lang = null, url = null } = {}) {
+async function launch(W, H, { query = '?debug', mode = 'dev', storage = null, mobile = false, cloud = null, purchases = null, lang = null, url = null, init = null } = {}) {
   const browser = await puppeteer.launch({
     executablePath: CHROME, headless: 'new',
     args: ['--autoplay-policy=no-user-gesture-required', '--no-sandbox', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
@@ -82,6 +82,7 @@ async function launch(W, H, { query = '?debug', mode = 'dev', storage = null, mo
     if (u.includes('phaser.min.js') && u.startsWith('http') && !u.includes('127.0.0.1')) return req.respond({ status: 200, contentType: 'application/javascript', body: VENDOR });
     req.continue();
   });
+  if (init) await page.evaluateOnNewDocument(init);
   if (cloud || purchases || lang) {
     await page.evaluateOnNewDocument((c, p, l) => { if (c) window.__cloud = { save: c }; if (p) window.__purchases = p; if (l) window.__lang = l; }, cloud, purchases, lang);
   }

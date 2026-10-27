@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a1458"/><stop offset="1" stop-color="#0c0a2a"/></linearGradient>
+<linearGradient id="pad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5ec8"/><stop offset=".5" stop-color="#9a5cff"/><stop offset="1" stop-color="#3fd8ff"/></linearGradient>
+<linearGradient id="tx" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6a8"/><stop offset=".55" stop-color="#ffc83a"/><stop offset="1" stop-color="#ff7a2b"/></linearGradient>
+<radialGradient id="g" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#b86bff" stop-opacity=".55"/><stop offset="1" stop-color="#b86bff" stop-opacity="0"/></radialGradient>
+<filter id="s"><feDropShadow dx="0" dy="9" stdDeviation="0" flood-color="#000" flood-opacity=".38"/></filter>
+<filter id="ex"><feDropShadow dx="0" dy="7" stdDeviation="0" flood-color="#150c34" flood-opacity="1"/></filter></defs>
+<rect width="512" height="512" fill="url(#bg)"/><circle cx="256" cy="210" r="200" fill="url(#g)"/>
+<g fill="#fff" opacity=".8"><circle cx="90" cy="86" r="3"/><circle cx="430" cy="100" r="2.5"/><circle cx="452" cy="270" r="2"/><circle cx="70" cy="270" r="2.5"/></g>
+<g transform="translate(256 200) scale(.92) translate(-256 -240)">
+<g filter="url(#s)"><path d="M126 190 C150 160 190 154 216 170 L296 170 C322 154 362 160 386 190 C416 228 432 292 420 330 C412 358 380 362 360 338 L336 308 C328 298 318 294 306 294 L206 294 C194 294 184 298 176 308 L152 338 C132 362 100 358 92 330 C80 292 96 228 126 190 Z" fill="url(#pad)"/></g>
+<rect x="136" y="214" width="26" height="76" rx="9" fill="#150c34"/><rect x="111" y="239" width="76" height="26" rx="9" fill="#150c34"/>
+<circle cx="372" cy="226" r="17" fill="#150c34"/><circle cx="340" cy="258" r="17" fill="#150c34"/><circle cx="404" cy="258" r="17" fill="#150c34"/><circle cx="372" cy="290" r="17" fill="#150c34"/>
+<circle cx="372" cy="226" r="9" fill="#ffd54a"/><circle cx="340" cy="258" r="9" fill="#3fd8ff"/><circle cx="404" cy="258" r="9" fill="#ff5ec8"/><circle cx="372" cy="290" r="9" fill="#7dff9a"/>
+<text x="256" y="262" text-anchor="middle" font-family="Futura, Helvetica, sans-serif" font-weight="700" font-size="104" fill="#150c34" opacity=".9">M</text></g>
+<g filter="url(#ex)"><text x="256" y="398" text-anchor="middle" font-family="'Avenir Next Condensed'" font-weight="800" font-style="italic" font-size="92" letter-spacing="3" fill="url(#tx)" stroke="#150c34" stroke-width="9" stroke-linejoin="round" paint-order="stroke">MAKEY</text></g>
+<text x="256" y="442" text-anchor="middle" font-family="'Avenir Next Condensed'" font-weight="800" font-style="italic" font-size="26" letter-spacing="17" fill="#e9e0ff">STUDIO</text></svg>

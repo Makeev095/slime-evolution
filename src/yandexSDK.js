@@ -4,6 +4,7 @@
 
 import { CONFIG, GENS, LANGS, setLang } from './config.js';
 import { stageFor } from './economy.js';
+import { currencyOf, ensureUser, handshake, isVkPlay, pay, VKPLAY_PRICES } from './vkplay.js';
 
 export const defaultData = () => ({
   v: 1,
@@ -53,6 +54,7 @@ class YandexSDKManager {
   constructor() {
     this.mode = 'none';
     this.ysdk = null;
+    this.vkApi = null;
     this.player = null;
     this.payments = null;
     this.game = null;
@@ -73,7 +75,16 @@ class YandexSDKManager {
     if (this.ready) return;
     const isLocal = ['localhost', '127.0.0.1', '', '0.0.0.0'].includes(location.hostname) || location.protocol === 'file:';
 
-    if (typeof YaGames === 'undefined') {
+    if (isVkPlay()) {
+      this.mode = 'vkplay';
+      try {
+        this.vkApi = await withTimeout(handshake(), 8000);
+        try { await ensureUser(this.vkApi); } catch (e) { console.warn('[VKPlay] auth:', e && e.message ? e.message : e); }
+      } catch (e) {
+        console.warn('[VKPlay] handshake failed:', e);
+        this.vkApi = null;
+      }
+    } else if (typeof YaGames === 'undefined') {
       this.mode = 'dev';
     } else {
       try {
@@ -200,13 +211,22 @@ class YandexSDKManager {
   }
 
   // ---------- Внутриигровые покупки (ysdk.getPayments) ----------
-  get paymentsAvailable() { return this.mode === 'dev' || !!this.payments; }
+  get paymentsAvailable() { return this.mode === 'dev' || (this.mode === 'vkplay' && !!this.vkApi) || !!this.payments; }
 
   // Каталог: { [id]: { price: '30 Ян', title } }. Цены берём только из каталога Яндекса.
   async getCatalog() {
     const out = {};
     if (this.mode === 'dev') {
       for (const id in CONFIG.shop.devPrices) out[id] = { price: CONFIG.shop.devPrices[id] };
+      return out;
+    }
+    if (this.mode === 'vkplay') {
+      const cur = currencyOf();
+      const mark = { RUB: '₽', USD: '$', EUR: '€' }[cur] || cur;
+      for (const id of Object.keys(VKPLAY_PRICES)) {
+        const row = VKPLAY_PRICES[id];
+        out[id] = { price: row[cur] + ' ' + mark, priceValue: String(row[cur]), title: row.ru };
+      }
       return out;
     }
     if (!this.payments) return out;
@@ -233,6 +253,11 @@ class YandexSDKManager {
       if (this.mode === 'dev') {
         await new Promise((r) => setTimeout(r, 500));
         await this._grant({ productID: id, purchaseToken: 'dev-' + Date.now() + '-' + Math.random() });
+        return true;
+      }
+      if (this.mode === 'vkplay') {
+        await pay(this.vkApi, id, this.data.lang || 'ru');
+        await this._grant({ productID: id, purchaseToken: 'vk-' + Date.now() + '-' + Math.random() });
         return true;
       }
       const purchase = await this.payments.purchase({ id });
@@ -286,6 +311,7 @@ class YandexSDKManager {
 
   // ---------- Реклама ----------
   canShowInterstitial() {
+    if (this.mode === 'vkplay') return false;
     return this.mode !== 'offline' && !this.busy && !this.data.noAds &&
       Date.now() - this.lastAdAt >= this.adInterval();
   }
@@ -295,7 +321,7 @@ class YandexSDKManager {
     const stage = this.data ? stageFor(this.data.allTime) : 0;
     return Math.min(CONFIG.ads.interstitialIntervalMs, list[Math.min(stage, list.length - 1)]);
   }
-  canShowRewarded() { return this.mode !== 'offline' && !this.busy; }
+  canShowRewarded() { return this.mode !== 'offline' && this.mode !== 'vkplay' && !this.busy; }
 
   // Межстраничная реклама. Вызывать только в безопасные моменты (конец раунда / смена уровня).
   // Возвращает Promise<boolean> — была ли показана реклама.

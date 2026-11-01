@@ -3,3 +3,9 @@ slime-evolution.zip
 vendor/
 node_modules/
 .DS_Store
+.dev.vars
+.env
+.wrangler/
+vkplay/.wrangler/
+vkplay/*.sqlite
+vkplay/purchases.sqlite

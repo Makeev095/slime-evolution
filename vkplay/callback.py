@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
-"""Callback биллинга VK Play: GET uid,sum,tid,merchant_param,sign → {status:ok}.
+"""Callback биллинга VK Play по https://documentation.vkplay.ru/f2p_vkp/f2pb_billing_vkp
 
-Секрет: кабинет → Системные свойства → «Секрет для API игр».
-Проверки по документации: подпись, уникальность tid, сумма, хранение tid.
+Платформа шлёт GET:
+  uid, sum, tid, merchant_param, sign
+Ответ: {"status":"ok"} или {"status":"error","errcode":...,"errmsg":...}
+
+Подпись: отсортировать ключи кроме sign, склеить key=value без разделителей,
+добавить секрет, взять MD5. Секрет — кабинет → Системные свойства → «Секрет для API игр».
+Повторный tid должен вернуть ok и не начисляться второй раз.
+sum информативен (после конвертации может отличаться); цена — в merchant_param.
 """
 from __future__ import annotations
 
@@ -34,9 +40,11 @@ def db():
     return con
 
 
-def sign_of(params: dict) -> str:
+def sign_of(params: dict, secret: str | None = None) -> str:
+    """Официальный алгоритм: sorted keys except sign, key=value + secret, MD5."""
+    key = SECRET if secret is None else secret
     keys = sorted(k for k in params if k != "sign")
-    raw = "".join(f"{k}={params[k]}" for k in keys) + SECRET
+    raw = "".join(f"{k}={params[k]}" for k in keys) + key
     return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
 
@@ -53,6 +61,40 @@ def price_ok(item_id: str, currency: str, amount) -> bool:
         return False
 
 
+def handle_billing(q: dict, secret: str | None = None) -> tuple[int, dict]:
+    key = SECRET if secret is None else secret
+    if not key:
+        return 200, {"status": "error", "errcode": 5001, "errmsg": "secret not configured"}
+    need = ("uid", "sum", "tid", "merchant_param", "sign")
+    if any(k not in q for k in need):
+        return 200, {"status": "error", "errcode": 2000, "errmsg": "Parameter error"}
+    if sign_of(q, key) != q["sign"]:
+        return 200, {"status": "error", "errcode": 5001, "errmsg": "Incorrect signature"}
+
+    try:
+        merchant = json.loads(q["merchant_param"] or "{}")
+    except json.JSONDecodeError:
+        merchant = {}
+    item_id = str(merchant.get("item_id") or merchant.get("sku") or "")
+    currency = str(merchant.get("original_currency") or merchant.get("currency") or "RUB")
+    amount = merchant.get("original_amount", merchant.get("amount"))
+    if item_id and amount is not None and not price_ok(item_id, currency, amount):
+        return 200, {"status": "error", "errcode": 2000, "errmsg": "sum mismatch"}
+
+    con = db()
+    cur = con.execute("SELECT tid FROM payments WHERE tid=?", (q["tid"],))
+    if cur.fetchone():
+        con.close()
+        return 200, {"status": "ok"}
+    con.execute(
+        "INSERT INTO payments (tid, uid, sum, item_id, raw) VALUES (?,?,?,?,?)",
+        (q["tid"], q["uid"], float(q["sum"] or 0), item_id, json.dumps(q, ensure_ascii=False)),
+    )
+    con.commit()
+    con.close()
+    return 200, {"status": "ok"}
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print("[vkplay-billing]", self.address_string(), fmt % args)
@@ -66,36 +108,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query, keep_blank_values=True).items()}
-        if not SECRET:
-            return self._send(200, {"status": "error", "errcode": 5001, "errmsg": "secret not configured"})
-        need = ("uid", "sum", "tid", "merchant_param", "sign")
-        if any(k not in q for k in need):
-            return self._send(200, {"status": "error", "errcode": 2000, "errmsg": "Parameter error"})
-        if sign_of(q) != q["sign"]:
-            return self._send(200, {"status": "error", "errcode": 5001, "errmsg": "Incorrect signature"})
-
-        try:
-            merchant = json.loads(q["merchant_param"] or "{}")
-        except json.JSONDecodeError:
-            merchant = {}
-        item_id = str(merchant.get("item_id") or merchant.get("sku") or "")
-        currency = str(merchant.get("currency") or "RUB")
-        if item_id and not price_ok(item_id, currency, merchant.get("amount", q["sum"])):
-            return self._send(200, {"status": "error", "errcode": 2000, "errmsg": "sum mismatch"})
-
-        con = db()
-        cur = con.execute("SELECT tid FROM payments WHERE tid=?", (q["tid"],))
-        if cur.fetchone():
-            con.close()
-            return self._send(200, {"status": "ok"})
-        con.execute(
-            "INSERT INTO payments (tid, uid, sum, item_id, raw) VALUES (?,?,?,?,?)",
-            (q["tid"], q["uid"], float(q["sum"]), item_id, json.dumps(q, ensure_ascii=False)),
-        )
-        con.commit()
-        con.close()
-        return self._send(200, {"status": "ok"})
+        parsed = urlparse(self.path)
+        if parsed.path.rstrip("/") in ("/health", "/api/billing/health"):
+            return self._send(200, {"status": "ok", "service": "vkplay-billing"})
+        q = {k: v[0] for k, v in parse_qs(parsed.query, keep_blank_values=True).items()}
+        code, payload = handle_billing(q)
+        return self._send(code, payload)
 
 
 if __name__ == "__main__":

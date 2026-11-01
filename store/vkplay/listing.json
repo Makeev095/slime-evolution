@@ -6,9 +6,11 @@
     "shortTitleMustNotContainGameName": true,
     "ruEnoughForCis": true,
     "enNeededForOtherCountries": true,
-    "paymentsDisabledUntil": "написать в chat.vkplay.ru или integration@vk.team — включить платежи (test или battle)",
+    "paymentsDisabledUntil": "тестовые платежи включены (RUB). Боевую платежку не включать до финансовой модерации.",
     "iframe": "HTTPS без X-Frame-Options. Поле «Ссылка для iframe» в Метаданных.",
-    "callback": "HTTPS URL vkplay/callback.py. Протокол GET, ответ {status:ok}, проверка sign и уникальности tid."
+    "callback": "HTTPS GET uid,sum,tid,merchant_param,sign → {status:ok}. Подпись: MD5(sorted key=value + секрет из «Системные свойства»). Повторный tid → ok без повторного начисления. Код: vkplay/callback.py и vkplay/worker.js. Постоянный хост — Cloudflare Worker slime-evolution-vkplay-billing (нужно заклеймить временный аккаунт). URL в кабинете сейчас указывает на живой callback.",
+    "storeLocales": "В кабинете VK Play у игры 51213 есть только store-локали RU и EN. Турецкий отмечен как язык игры (текст) в «Поддерживаемые языки». Отдельной tr_TR страницы магазина нет.",
+    "itemsUploaded": "5 ItemDef загружены 2026-10-31: itemdefid 1–5."
   },
   "ru": {
     "name": "Слайм: Эволюция",
@@ -23,7 +25,7 @@
     "shortTitleLen": 26,
     "shortDescription": "Тапай слайма, собирай желе и покупай помощников. Слайм проходит стадии от капельки до бога слаймов. Лови золотые пузыри, перерождайся за эссенцию и открывай новых помощников. Игра на русском, английском и турецком. Прогресс сохраняется.",
     "shortDescriptionLen": 236,
-    "fullDescription": "Тапай по слайму и собирай желе. На желе покупай помощников: капельницы, червячков, грибные фермы, лаборатории, вулканы, замки, драконов, ракеты, порталы, планеты, звёзды и чёрные дыры. Пока ты в игре, они добывают желе сами.\n\nКогда желе накопится, слайм эволюционирует: капелька, слайм, рыцарь, маг, дракон, космонавт, бог слаймов. Каждая стадия меняет вид мира, доход и даёт кристаллы.\n\nЛови золотые пузыри, включай ярость (тапы становятся втрое сильнее), забирай ежедневные награды и смотри видео за ускорение x2. Во вкладке «Рождение» можно переродиться: прогресс забега сбросится, но ты получишь эссенцию и постоянный бонус к доходу.\n\nКристаллы тратятся на перемотку времени, турбо и другие бонусы. Их можно получить в игре или купить.\n\nУправление: касание или клик мышью, на компьютере работает пробел. Языки: русский, английский, турецкий.",
+    "fullDescription": "Тапай по слайму и собирай желе. На желе покупай помощников: капельницы, червячков, грибные фермы, лаборатории, вулканы, замки, драконов, ракеты, порталы, планеты, звёзды и чёрные дыры. Пока ты в игре, они добывают желе сами.\n\nКогда желе накопится, слайм эволюционирует: капелька, слайм, рыцарь, маг, дракон, космонавт, бог слаймов. Каждая стадия меняет вид мира, доход и даёт кристаллы.\n\nЛови золотые пузыри, включай ярость (тапы становятся втрое сильнее) и забирай ежедневные награды. Во вкладке «Рождение» можно переродиться: прогресс забега сбросится, но ты получишь эссенцию и постоянный бонус к доходу.\n\nКристаллы тратятся на перемотку времени, турбо и другие бонусы. Их можно получить в игре или купить.\n\nУправление: касание или клик мышью, на компьютере работает пробел. Языки: русский, английский, турецкий.",
     "age": "0+",
     "supportedLanguages": ["Русский", "Английский", "Турецкий"],
     "support": "https://github.com/Makeev095/slime-evolution/issues"
@@ -39,7 +41,20 @@
     "shortTitleLen": 31,
     "shortDescription": "Tap the slime, collect jelly and buy helpers. The slime evolves from a droplet to the Slime God. Catch golden bubbles, be reborn for essence and unlock new helpers. Play in Russian, English and Turkish. Progress is saved.",
     "shortDescriptionLen": 221,
-    "fullDescription": "Tap the slime to collect jelly. Spend jelly on helpers: drippers, worms, mushroom farms, laboratories, volcanoes, castles, dragons, rockets, portals, planets, stars and black holes. They collect jelly on their own while you play.\n\nWhen enough jelly is collected, the slime evolves: droplet, slime, knight, wizard, dragon, astronaut, Slime God. Each stage changes the world, income and grants crystals.\n\nCatch golden bubbles, start frenzy (taps become three times stronger), claim daily rewards and watch a video for an x2 boost. In the Rebirth tab you can reset the run for essence and a permanent income bonus.\n\nSpend crystals on time warps, turbo and other bonuses. Crystals can be earned in play or purchased.\n\nControls: touch or mouse click; on desktop the space bar works too. Languages: Russian, English, Turkish."
+    "fullDescription": "Tap the slime to collect jelly. Spend jelly on helpers: drippers, worms, mushroom farms, laboratories, volcanoes, castles, dragons, rockets, portals, planets, stars and black holes. They collect jelly on their own while you play.\n\nWhen enough jelly is collected, the slime evolves: droplet, slime, knight, wizard, dragon, astronaut, Slime God. Each stage changes the world, income and grants crystals.\n\nCatch golden bubbles, start frenzy (taps become three times stronger) and claim daily rewards. In the Rebirth tab you can reset the run for essence and a permanent income bonus.\n\nSpend crystals on time warps, turbo and other bonuses. Crystals can be earned in play or purchased.\n\nControls: touch or mouse click; on desktop the space bar works too. Languages: Russian, English, Turkish."
+  },
+  "tr": {
+    "name": "Slime Evrimi",
+    "altSearch": [
+      "Slime Evrimi",
+      "Slime Evolution",
+      "Слайм Эволюция"
+    ],
+    "shortTitle": "Slime’a dokun, jöle topla",
+    "shortTitleLen": 25,
+    "shortDescription": "Slime’a dokun, jöle topla ve yardımcılar satın al. Slime damladan Slime Tanrısı’na evrimleşir. Altın baloncukları yakala, öz için yeniden doğ ve yeni yardımcıları aç. Rusça, İngilizce ve Türkçe. İlerleme kaydedilir.",
+    "shortDescriptionLen": 215,
+    "fullDescription": "Slime’a dokunarak jöle topla. Jöleyi yardımcılara harca: damlatıcılar, solucanlar, mantar çiftlikleri, laboratuvarlar, yanardağlar, kaleler, ejderhalar, roketler, portallar, gezegenler, yıldızlar ve kara delikler. Sen oynarken onlar jöle üretir.\n\nYeterince jöle birikince slime evrimleşir: damla, slime, şövalye, büyücü, ejderha, astronot, Slime Tanrısı. Her aşama dünyayı, geliri değiştirir ve kristal verir.\n\nAltın baloncukları yakala, çılgınlık başlat (dokunuşlar üç kat güçlenir), günlük ödülleri al. Yeniden doğuş sekmesinde koşuyu sıfırlayıp öz ve kalıcı gelir bonusu alabilirsin.\n\nKristalleri zaman atlama, turbo ve diğer bonuslara harca. Kristaller oyunda kazanılır veya satın alınır.\n\nKontrol: dokunma veya fare. Diller: Rusça, İngilizce, Türkçe."
   },
   "legal": {
     "developer": "Makey Studio",
@@ -70,66 +85,81 @@
   "items": [
     {
       "sku": "gems_100",
+      "itemdefid": 1,
       "type": "consumable",
       "amountRub": 99,
       "amountUsd": 1.26,
       "amountEur": 1.12,
       "titleRu": "100 кристаллов",
       "titleEn": "100 crystals",
+      "titleTr": "100 kristal",
       "descRu": "Пачка из 100 кристаллов",
       "descEn": "A pack of 100 crystals",
+      "descTr": "100 kristallik paket",
       "payDescription": "100 кристаллов",
       "icon": "store/vkplay/items/gems_100.png"
     },
     {
       "sku": "gems_550",
+      "itemdefid": 2,
       "type": "consumable",
       "amountRub": 499,
       "amountUsd": 6.30,
       "amountEur": 5.61,
       "titleRu": "550 кристаллов",
       "titleEn": "550 crystals",
+      "titleTr": "550 kristal",
       "descRu": "Пачка из 550 кристаллов",
       "descEn": "A pack of 550 crystals",
+      "descTr": "550 kristallik paket",
       "payDescription": "550 кристаллов",
       "icon": "store/vkplay/items/gems_550.png"
     },
     {
       "sku": "gems_1800",
+      "itemdefid": 3,
       "type": "consumable",
       "amountRub": 1490,
       "amountUsd": 18.90,
       "amountEur": 16.83,
       "titleRu": "1800 кристаллов",
       "titleEn": "1800 crystals",
+      "titleTr": "1800 kristal",
       "descRu": "Пачка из 1800 кристаллов",
       "descEn": "A pack of 1800 crystals",
+      "descTr": "1800 kristallik paket",
       "payDescription": "1800 кристаллов",
       "icon": "store/vkplay/items/gems_1800.png"
     },
     {
       "sku": "x2_forever",
+      "itemdefid": 4,
       "type": "permanent",
       "amountRub": 649,
       "amountUsd": 8.36,
       "amountEur": 7.44,
       "titleRu": "x2 доход навсегда",
       "titleEn": "x2 income forever",
+      "titleTr": "Kalıcı x2 gelir",
       "descRu": "Удваивает весь доход навсегда",
       "descEn": "Doubles all income forever",
+      "descTr": "Tüm geliri kalıcı olarak ikiye katlar",
       "payDescription": "x2 доход навсегда",
       "icon": "store/vkplay/items/x2_forever.png"
     },
     {
       "sku": "no_ads",
+      "itemdefid": 5,
       "type": "permanent",
       "amountRub": 329,
       "amountUsd": 4.16,
       "amountEur": 3.70,
       "titleRu": "Без рекламы",
       "titleEn": "No ads",
+      "titleTr": "Reklamsız",
       "descRu": "Отключает межстраничную рекламу",
       "descEn": "Disables interstitial ads",
+      "descTr": "Geçiş reklamlarını kapatır",
       "payDescription": "Без рекламы",
       "icon": "store/vkplay/items/no_ads.png"
     }

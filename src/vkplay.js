@@ -1,14 +1,15 @@
 // VK Play JS API (iframeApi) + окно оплаты paymentFrame.
+// Спека: https://documentation.vkplay.ru/f2p_vkp/f2pb_billing_vkp
 // Подключается только внутри iframe кабинета; снаружи iframeApi нет — игра остаётся в Yandex/dev.
 
 export const VKPLAY_APP_ID = 51213;
 
 export const VKPLAY_PRICES = {
-  gems_100: { RUB: 99, USD: 1.26, EUR: 1.12, ru: '100 кристаллов', en: '100 crystals' },
-  gems_550: { RUB: 499, USD: 6.30, EUR: 5.61, ru: '550 кристаллов', en: '550 crystals' },
-  gems_1800: { RUB: 1490, USD: 18.90, EUR: 16.83, ru: '1800 кристаллов', en: '1800 crystals' },
-  x2_forever: { RUB: 649, USD: 8.36, EUR: 7.44, ru: 'x2 доход навсегда', en: 'x2 income forever' },
-  no_ads: { RUB: 329, USD: 4.16, EUR: 3.70, ru: 'Без рекламы', en: 'No ads' }
+  gems_100: { RUB: 99, USD: 1.26, EUR: 1.12, itemdef: 1, ru: '100 кристаллов', en: '100 crystals' },
+  gems_550: { RUB: 499, USD: 6.30, EUR: 5.61, itemdef: 2, ru: '550 кристаллов', en: '550 crystals' },
+  gems_1800: { RUB: 1490, USD: 18.90, EUR: 16.83, itemdef: 3, ru: '1800 кристаллов', en: '1800 crystals' },
+  x2_forever: { RUB: 649, USD: 8.36, EUR: 7.44, itemdef: 4, ru: 'x2 доход навсегда', en: 'x2 income forever' },
+  no_ads: { RUB: 329, USD: 4.16, EUR: 3.70, itemdef: 5, ru: 'Без рекламы', en: 'No ads' }
 };
 
 export function isVkPlay() {
@@ -19,6 +20,11 @@ export function currencyOf() {
   const q = new URLSearchParams(location.search);
   const c = (q.get('currency') || q.get('cur') || 'RUB').toUpperCase();
   return c === 'USD' || c === 'EUR' ? c : 'RUB';
+}
+
+function userUid() {
+  const u = window.__vkUser || {};
+  return u.uid || u.id || u.user_id || (u.user && (u.user.uid || u.user.id)) || '';
 }
 
 export function handshake() {
@@ -51,10 +57,14 @@ function loginStatus(status) {
   return s === 0 || s === '0' ? 0 : Number(s);
 }
 
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 export async function ensureUser(api) {
   if (!api) return {};
   try { if (api.getLoginStatus) api.getLoginStatus(); } catch (e) { /* ignore */ }
-  try { if (api.userInfo) api.userInfo(); } catch (e) { /* ignore */ }
+  for (let i = 0; i < 20 && !window.__vkLogin; i++) await sleep(50);
   if (!window.__vkLogin) return {};
   const code = loginStatus(window.__vkLogin);
   if (code === 0 && api.authUser) {
@@ -65,6 +75,8 @@ export async function ensureUser(api) {
     api.registerUser();
     throw new Error('vkplay-register');
   }
+  try { if (api.userInfo) api.userInfo(); } catch (e) { /* ignore */ }
+  for (let i = 0; i < 20 && !window.__vkUser; i++) await sleep(50);
   return window.__vkUser || {};
 }
 
@@ -73,6 +85,15 @@ export function pay(api, productId, lang) {
   if (!row || !api || !api.paymentFrame) return Promise.reject(new Error('no product'));
   const currency = currencyOf();
   const description = String((lang === 'en' ? row.en : row.ru) || productId).slice(0, 50);
+  const merchant_param = {
+    amount: row[currency],
+    currency,
+    description,
+    item_id: productId,
+    itemdefid: row.itemdef
+  };
+  const uid = userUid();
+  if (uid) merchant_param.uid = String(uid);
   return new Promise((resolve, reject) => {
     let done = false;
     const finish = (ok) => {
@@ -85,13 +106,6 @@ export function pay(api, productId, lang) {
     };
     window.__vkPayOk = () => finish(true);
     window.__vkPayClosed = () => setTimeout(() => { if (!done) finish(false); }, 800);
-    api.paymentFrame({
-      merchant_param: {
-        amount: row[currency],
-        currency,
-        description,
-        item_id: productId
-      }
-    });
+    api.paymentFrame({ merchant_param });
   });
 }

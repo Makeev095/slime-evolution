@@ -1,6 +1,6 @@
 // Нижняя панель: вкладки «Улучшения» / «Кристаллы» / «Рождение», прокручиваемый список, покупка кликом по всей строке.
 import { CONFIG, GENS, t, lname } from '../config.js';
-import { YandexSDK } from '../yandexSDK.js';
+import { YandexSDK } from '../yandexSDK.js?v=20261115';
 import * as Eco from '../economy.js';
 import { fmt, fmtTime } from '../format.js';
 import { makeText } from '../ui.js';

@@ -1,7 +1,7 @@
-import { createGameConfig } from './config.js?v=20261116';
-import { BootScene } from './scenes/BootScene.js?v=20261116';
-import { PlayScene } from './scenes/PlayScene.js?v=20261116';
-import { ShopScene } from './scenes/ShopScene.js?v=20261116';
+import { createGameConfig } from './config.js?v=20261117';
+import { BootScene } from './scenes/BootScene.js?v=20261117';
+import { PlayScene } from './scenes/PlayScene.js?v=20261117';
+import { ShopScene } from './scenes/ShopScene.js?v=20261117';
 
 // Шрифт должен быть загружен до создания текстов, иначе они нарисуются запасным шрифтом
 const withTimeout = (p, ms) => Promise.race([p, new Promise((r) => setTimeout(r, ms))]);

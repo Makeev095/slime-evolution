@@ -2275,9 +2275,7 @@ var iframeApi = function iframeApi(myApi, userOptions) {
       var data = e.data.payload ? e.data.payload : e.data;
 
       if (!data || !data.cmd) {
-        var msg = 'invalid message received by the iframe API';
-        log(msg);
-        throw new Error(msg);
+        return;
       }
 
       switch (data.cmd) {
@@ -2422,10 +2420,12 @@ function reviveApi(userOptions, received, port) {
 
   /* jshint -W061 */
   /* eslint no-eval:0 */
-  // event.source is the communication channel pointing at iframe
-  // it allows posting messages back to the iframe
-  return eval('(' + received.source +
-    ')(port, received.methodNames, received.values, received.methodHelps)');
+  try {
+    return eval('(' + received.source +
+      ')(port, received.methodNames, received.values, received.methodHelps)');
+  } catch (e) {
+    return apiFactory(port, received.methodNames, received.values, received.methodHelps);
+  }
 }
 
 module.exports = {

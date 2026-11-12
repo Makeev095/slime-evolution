@@ -7,7 +7,7 @@ import { stageFor } from './economy.js';
 import {
   currencyOf, ensureUser, handshake, inIframe, isVkPlay, loadCloudSave, looksLikeVkPlay,
   pay, userUid, waitForIframeApi, writeCloudSave, VKPLAY_PRICES
-} from './vkplay.js?v=20261115';
+} from './vkplay.js?v=20261117';
 
 export const defaultData = () => ({
   v: 1,

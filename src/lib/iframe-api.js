@@ -2413,19 +2413,18 @@ function reviveApi(userOptions, received, port) {
   la(arguments.length === 3, 'missing arguments to revive api');
   la(port && typeof port.postMessage === 'function',
     'invalid port object');
-  verifyMd5(userOptions, received);
+  received = received || {};
+  try { verifyMd5(userOptions, received); } catch (e) { /* vkplay __api без source/md5 */ }
 
-  received.methodNames = Array.isArray(received.methodNames) ? received.methodNames : [];
-  received.methodHelps = Array.isArray(received.methodHelps) ? received.methodHelps : [];
-
-  /* jshint -W061 */
-  /* eslint no-eval:0 */
-  try {
-    return eval('(' + received.source +
-      ')(port, received.methodNames, received.values, received.methodHelps)');
-  } catch (e) {
-    return apiFactory(port, received.methodNames, received.values, received.methodHelps);
-  }
+  var names = Array.isArray(received.methodNames)
+    ? received.methodNames
+    : (received.methodNames && typeof received.methodNames === 'object'
+      ? Object.keys(received.methodNames) : []);
+  var helps = received.methodHelps && typeof received.methodHelps === 'object'
+    ? received.methodHelps : {};
+  var values = received.values && typeof received.values === 'object'
+    ? received.values : {};
+  return apiFactory(port, names, values, helps);
 }
 
 module.exports = {

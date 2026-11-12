@@ -1,11 +1,11 @@
 import { CONFIG, DESIGN, GENS, LANGS, LANG_NAMES, getLang, t, lname } from '../config.js';
-import { YandexSDK } from '../yandexSDK.js?v=20261117';
+import { YandexSDK } from '../yandexSDK.js?v=20261118';
 import { Sfx } from '../audio.js';
 import * as Eco from '../economy.js';
 import { fmt, fmtGel, fmtTime, fmtAway } from '../format.js';
 import { buildDecor, SLIME_SIZE } from '../art.js';
 import { makeText, gradientText, makeButton, makeRoundButton, burst, shock, floatText, toast } from '../ui.js';
-import { UpgradePanel, PANEL } from '../ui/UpgradePanel.js?v=20261117';
+import { UpgradePanel, PANEL } from '../ui/UpgradePanel.js?v=20261118';
 import { openModal } from '../ui/Modal.js';
 
 const E = CONFIG.eco;

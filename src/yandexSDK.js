@@ -7,7 +7,7 @@ import { stageFor } from './economy.js';
 import {
   currencyOf, ensureUser, handshake, inIframe, isVkPlay, loadCloudSave, looksLikeVkPlay,
   pay, userUid, waitForIframeApi, writeCloudSave, VKPLAY_PRICES
-} from './vkplay.js?v=20261117';
+} from './vkplay.js?v=20261118';
 
 export const defaultData = () => ({
   v: 1,
@@ -133,6 +133,7 @@ class YandexSDKManager {
           iframeApi: typeof window.iframeApi,
           inIframe: inIframe(),
           parentIsSelf: window.parent === window.self,
+          keys: this.vkApi ? Object.keys(this.vkApi) : [],
           err: this.handshakeError || ''
         } }, '*');
       }

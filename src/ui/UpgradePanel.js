@@ -102,7 +102,8 @@ export class UpgradePanel {
     const c = s.add.container(300, n * PANEL.ROW_H + PANEL.ROW_H / 2);
     const bg = s.add.image(0, 0, 'row').setDisplaySize(568, 104);
     const iconKey = kind === 'tap' ? 'e_tap' : kind === 'gen' ? 'g' + idx
-      : kind === 'video' ? 'e_video' : kind === 'turbo' ? 'e_rocket' : kind === 'shop' ? 'e_cart' : 'e_clock';
+      : kind === 'video' ? (YandexSDK.adsAllowed() ? 'e_video' : 'gem')
+      : kind === 'turbo' ? 'e_rocket' : kind === 'shop' ? 'e_cart' : 'e_clock';
     const icon = s.add.image(-226, 0, iconKey).setDisplaySize(72, 72);
     const lock = s.add.image(-226, 0, 'lock').setDisplaySize(40, 40).setVisible(false);
     const title = makeText(s, -178, -22, '', 31, '#ffffff', { ox: 0, sw: 5, shadow: false });
@@ -242,6 +243,11 @@ export class UpgradePanel {
       const ads = YandexSDK.adsAllowed();
       this._set(row, 't', row.title, t('gemVideo', { n: E.gemVideo.gems }), 252);
       this._set(row, 's', row.sub, t(ads ? 'gemVideoDesc' : 'gemVideoDescFree'), 252);
+      const iconTex = ads ? 'e_video' : 'gem';
+      if (row.cache.icon !== iconTex) {
+        row.icon.setTexture(iconTex).setDisplaySize(72, 72);
+        row.cache.icon = iconTex;
+      }
       this._setTex(row, 'btn', row.btn, ok ? 'btn_gold' : 'btn_grey');
       this._setTex(row, 'bg', row.bg, ok ? 'row' : 'row_off');
       this._layoutBtn(row, ok ? t('free') : fmtTime(wait / 1000), ok, ads ? 'ic_video' : 'gem');

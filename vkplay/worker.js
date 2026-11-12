@@ -15,11 +15,56 @@ const PRICES = {
   no_ads: { RUB: 329, USD: 4.16, EUR: 3.7 },
 };
 
+const CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-headers": "content-type",
+};
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: { "content-type": "application/json; charset=utf-8", ...CORS },
   });
+}
+
+function corsOk() {
+  return new Response(null, { status: 204, headers: CORS });
+}
+
+function uidOk(uid) {
+  return /^\d{1,20}$/.test(String(uid || ""));
+}
+
+async function handleSave(request, env, url) {
+  if (request.method === "GET") {
+    const uid = url.searchParams.get("uid") || "";
+    if (!uidOk(uid)) return json({ status: "error", errmsg: "uid" }, 400);
+    if (!env.PURCHASES) return json({ status: "ok", save: null });
+    const raw = await env.PURCHASES.get(`save:${uid}`);
+    if (!raw) return json({ status: "ok", save: null });
+    try {
+      return json({ status: "ok", save: JSON.parse(raw) });
+    } catch {
+      return json({ status: "ok", save: null });
+    }
+  }
+  if (request.method === "POST") {
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return json({ status: "error", errmsg: "json" }, 400);
+    }
+    const uid = String((body && body.uid) || "");
+    const save = body && body.save;
+    if (!uidOk(uid) || !save || typeof save !== "object") return json({ status: "error", errmsg: "uid" }, 400);
+    const payload = JSON.stringify(save);
+    if (payload.length > 80000) return json({ status: "error", errmsg: "too large" }, 400);
+    if (env.PURCHASES) await env.PURCHASES.put(`save:${uid}`, payload);
+    return json({ status: "ok" });
+  }
+  return json({ status: "error", errcode: 2000, errmsg: "GET/POST only" }, 405);
 }
 
 function md5(str) {
@@ -171,7 +216,9 @@ function priceOk(itemId, currency, amount) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (request.method === "OPTIONS") return corsOk();
     if (url.pathname === "/health") return json({ status: "ok", service: "vkplay-billing" });
+    if (url.pathname === "/save") return handleSave(request, env, url);
     if (request.method !== "GET") return json({ status: "error", errcode: 2000, errmsg: "GET only" });
     const secret = env.VKPLAY_SECRET || "";
     if (!secret) return json({ status: "error", errcode: 5001, errmsg: "secret not configured" });

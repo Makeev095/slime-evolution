@@ -1,5 +1,6 @@
 // Нижняя панель: вкладки «Улучшения» / «Кристаллы» / «Рождение», прокручиваемый список, покупка кликом по всей строке.
 import { CONFIG, GENS, t, lname } from '../config.js';
+import { YandexSDK } from '../yandexSDK.js';
 import * as Eco from '../economy.js';
 import { fmt, fmtTime } from '../format.js';
 import { makeText } from '../ui.js';
@@ -238,11 +239,12 @@ export class UpgradePanel {
     if (row.kind === 'video') {
       const wait = Math.max(0, d.gemVideoAt - now);
       const ok = wait === 0;
+      const ads = YandexSDK.adsAllowed();
       this._set(row, 't', row.title, t('gemVideo', { n: E.gemVideo.gems }), 252);
-      this._set(row, 's', row.sub, t('gemVideoDesc'), 252);
+      this._set(row, 's', row.sub, t(ads ? 'gemVideoDesc' : 'gemVideoDescFree'), 252);
       this._setTex(row, 'btn', row.btn, ok ? 'btn_gold' : 'btn_grey');
       this._setTex(row, 'bg', row.bg, ok ? 'row' : 'row_off');
-      this._layoutBtn(row, ok ? t('free') : fmtTime(wait / 1000), ok, 'ic_video');
+      this._layoutBtn(row, ok ? t('free') : fmtTime(wait / 1000), ok, ads ? 'ic_video' : 'gem');
       row.ok = ok;
     } else if (row.kind === 'shop') {
       this._set(row, 't', row.title, t('shopBtn'), 252);

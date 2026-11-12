@@ -407,8 +407,11 @@ export class PlayScene extends Phaser.Scene {
     if (boostLeft > 0) {
       this.boostBtn.label.setText('x' + d.boostMult + ' ' + fmtTime(boostLeft / 1000)).setColor('#9dff9a');
       this.boostGlow.setAlpha(0.35 + Math.sin(now / 250) * 0.15);
+    } else if (!YandexSDK.adsAllowed() && d.boostAt > now) {
+      this.boostBtn.label.setText(fmtTime((d.boostAt - now) / 1000)).setColor('#d6ccff');
+      this.boostGlow.setAlpha(0);
     } else {
-      this.boostBtn.label.setText(t('watchAd')).setColor('#ffffff');
+      this.boostBtn.label.setText(YandexSDK.adsAllowed() ? t('watchAd') : t('boost')).setColor('#ffffff');
       this.boostGlow.setAlpha(0);
     }
     // подарок
@@ -575,7 +578,10 @@ export class PlayScene extends Phaser.Scene {
 
   floatAtSlime(str, color, size) { floatText(this, SLIME_X + Phaser.Math.Between(-60, 60), SLIME_BOTTOM - 250, str, color, size, 50); }
 
-  gemVideoReady(now) { return this.d.gemVideoAt <= now && YandexSDK.canShowRewarded(); }
+  gemVideoReady(now) {
+    if (this.d.gemVideoAt > now) return false;
+    return YandexSDK.adsAllowed() ? YandexSDK.canShowRewarded() : true;
+  }
 
   buyGemItem(kind, row) {
     const d = this.d, now = Date.now();
@@ -630,20 +636,32 @@ export class PlayScene extends Phaser.Scene {
     return ok;
   }
 
+  claimFree(fn) {
+    try { fn(); } catch (e) { console.error(e); }
+    this.refreshHud(true); this.panel.refresh(true);
+    return true;
+  }
+
   onBoostClick() {
-    this.rewarded(() => {
+    const give = () => {
       Eco.addBoost(this.d, Date.now(), E.boost.adMs, E.boost.mult);
       this.dirty = true;
       this.sfx('gold_get', 0.6);
       toast(this, t('boostName') + ' x2!', 560);
       this.persist(true);
-    });
+    };
+    if (YandexSDK.adsAllowed()) { this.rewarded(give); return; }
+    const now = Date.now();
+    if (this.d.boostUntil > now) return;
+    if (this.d.boostAt > now) { this.sfx('denied', 0.4); return; }
+    this.d.boostAt = now + E.boost.freeCooldownMs;
+    this.claimFree(give);
   }
 
   onGiftClick() {
     const d = this.d;
     if (Date.now() < d.giftAt) { this.sfx('denied', 0.4); return; }
-    this.rewarded(() => {
+    const give = () => {
       const gain = Math.max(Eco.cps(d, 0) * E.gift.minutes * 60, Eco.tapBaseValue(d) * 100, 50);
       Eco.addGel(d, gain);
       d.giftAt = Date.now() + E.gift.cooldownMs;
@@ -651,19 +669,23 @@ export class PlayScene extends Phaser.Scene {
       burst(this, 300, 400, [0xffe14d, 0xffffff, 0xff9ae8], 28, { depth: 80 });
       floatText(this, 300, 330, '+' + fmt(gain), '#ffe14d', 54, 90);
       this.persist(true);
-    });
+    };
+    if (YandexSDK.adsAllowed()) this.rewarded(give);
+    else this.claimFree(give);
   }
 
   watchGemVideo() {
     const d = this.d;
     if (d.gemVideoAt > Date.now()) { this.sfx('denied', 0.4); return; }
-    this.rewarded(() => {
+    const give = () => {
       d.gems += E.gemVideo.gems;
       d.gemVideoAt = Date.now() + E.gemVideo.cooldownMs;
       this.sfx('gem', 0.8);
       toast(this, t('goldGems', { n: E.gemVideo.gems }), 560);
       this.persist(true);
-    });
+    };
+    if (YandexSDK.adsAllowed()) this.rewarded(give);
+    else this.claimFree(give);
   }
 
   // Межстраничная реклама только в «безопасные» моменты: игрок не тапает, нет окон, прошло ≥ 2 минут
@@ -823,7 +845,7 @@ export class PlayScene extends Phaser.Scene {
       },
       buttons: [
         { label: t('claim'), kind: 'green', size: 32 },
-        { label: t('claimX2'), kind: 'gold', icon: 'ic_video', size: 26, keepOpen: true, onClick: (h) => this.rewarded(() => { this.d.gems += gems; this.sfx('gem', 0.8); toast(this, t('goldGems', { n: gems }), 560); this.persist(true); }).then((ok) => { if (ok) h.close(); }) }
+        ...(YandexSDK.adsAllowed() ? [{ label: t('claimX2'), kind: 'gold', icon: 'ic_video', size: 26, keepOpen: true, onClick: (h) => this.rewarded(() => { this.d.gems += gems; this.sfx('gem', 0.8); toast(this, t('goldGems', { n: gems }), 560); this.persist(true); }).then((ok) => { if (ok) h.close(); }) }] : [])
       ],
       onClose: () => this.onModalClosed(true)
     });
@@ -897,8 +919,8 @@ export class PlayScene extends Phaser.Scene {
       },
       buttons: [
         { label: t('claim'), kind: 'green', onClick: () => { Eco.claimDaily(d, Date.now(), 1); this.sfx('gem', 0.9); this.dirty = true; this.persist(true); } },
-        { label: t('claimX2'), kind: 'gold', icon: 'ic_video', size: 26, keepOpen: true,
-          onClick: (h) => this.rewarded(() => { Eco.claimDaily(d, Date.now(), 2); this.sfx('gem', 0.9); this.dirty = true; this.persist(true); }).then((ok) => { if (ok) h.close(); }) }
+        ...(YandexSDK.adsAllowed() ? [{ label: t('claimX2'), kind: 'gold', icon: 'ic_video', size: 26, keepOpen: true,
+          onClick: (h) => this.rewarded(() => { Eco.claimDaily(d, Date.now(), 2); this.sfx('gem', 0.9); this.dirty = true; this.persist(true); }).then((ok) => { if (ok) h.close(); }) }] : [])
       ],
       onClose: () => { this.dailyPending = false; this.onModalClosed(false); }
     });

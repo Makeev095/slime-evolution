@@ -4,7 +4,10 @@
 
 import { CONFIG, GENS, LANGS, setLang } from './config.js';
 import { stageFor } from './economy.js';
-import { currencyOf, ensureUser, handshake, isVkPlay, pay, VKPLAY_PRICES } from './vkplay.js';
+import {
+  currencyOf, ensureUser, handshake, isVkPlay, loadCloudSave, looksLikeVkPlay,
+  pay, userUid, waitForIframeApi, writeCloudSave, VKPLAY_PRICES
+} from './vkplay.js';
 
 export const defaultData = () => ({
   v: 1,
@@ -18,8 +21,9 @@ export const defaultData = () => ({
   essence: 0,
   rebirths: 0,
   boostUntil: 0, boostMult: 2, goldUntil: 0, stormUntil: 0, // временные эффекты (метки времени, ms)
-  giftAt: 0,          // когда снова доступен подарок за видео
-  gemVideoAt: 0,      // когда снова доступны кристаллы за видео
+  giftAt: 0,          // когда снова доступен подарок
+  gemVideoAt: 0,      // когда снова доступны бесплатные кристаллы
+  boostAt: 0,         // кулдаун бесплатного ускорения (VK Play, без рекламы)
   seenStage: 0,       // до какой стадии уже показывали эволюцию
   lastDaily: null,    // { key, idx, day }
   dailyStreak: 0,
@@ -74,8 +78,12 @@ class YandexSDKManager {
     this.game = game;
     if (this.ready) return;
     const isLocal = ['localhost', '127.0.0.1', '', '0.0.0.0'].includes(location.hostname) || location.protocol === 'file:';
+    const onGithubPages = /github\.io$/i.test(location.hostname);
+    if (looksLikeVkPlay() || onGithubPages) {
+      await waitForIframeApi(onGithubPages || looksLikeVkPlay() ? 4000 : 0);
+    }
 
-    if (isVkPlay()) {
+    if (isVkPlay() || (onGithubPages && typeof YaGames === 'undefined')) {
       this.mode = 'vkplay';
       try {
         this.vkApi = await withTimeout(handshake(), 8000);
@@ -85,7 +93,8 @@ class YandexSDKManager {
         this.vkApi = null;
       }
     } else if (typeof YaGames === 'undefined') {
-      this.mode = 'dev';
+      // Dev с фейковой рекламой и мгновенными покупками — только локально.
+      this.mode = isLocal ? 'dev' : 'offline';
     } else {
       try {
         this.ysdk = await withTimeout(YaGames.init(), 6000); // YaGames.init() -> ysdk
@@ -150,6 +159,12 @@ class YandexSDKManager {
         const res = await withTimeout(this.player.getData(['save']), 4000);
         cloud = res && res.save ? res.save : null;
       } catch (e) { console.warn('[YandexSDK] cloud load failed, fallback to localStorage:', e); }
+    } else if (this.mode === 'vkplay') {
+      const uid = userUid();
+      if (uid) {
+        try { cloud = await withTimeout(loadCloudSave(uid), 5000); }
+        catch (e) { console.warn('[VKPlay] cloud load failed:', e); }
+      }
     }
     // Побеждает более свежий прогресс — игрок не теряет данные ни при логине, ни при выходе
     const pick = [cloud, local].filter(Boolean).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
@@ -179,9 +194,16 @@ class YandexSDKManager {
     clearTimeout(this._saveTimer);
     this._saveTimer = null;
     this._writeLocal();
-    if (!this.player) return;
-    try { this.player.setData({ save: this.data }, true).catch((e) => console.warn('[YandexSDK] cloud save failed:', e)); }
-    catch (e) { console.warn('[YandexSDK] cloud save failed:', e); }
+    if (this.player) {
+      try { this.player.setData({ save: this.data }, true).catch((e) => console.warn('[YandexSDK] cloud save failed:', e)); }
+      catch (e) { console.warn('[YandexSDK] cloud save failed:', e); }
+      return;
+    }
+    if (this.mode === 'vkplay') {
+      const uid = userUid();
+      if (!uid) return;
+      writeCloudSave(uid, this.data).catch((e) => console.warn('[VKPlay] cloud save failed:', e));
+    }
   }
 
   // ---------- Пауза и звук ----------
@@ -256,6 +278,7 @@ class YandexSDKManager {
         return true;
       }
       if (this.mode === 'vkplay') {
+        if (!this.vkApi) throw new Error('vkplay-api');
         await pay(this.vkApi, id, this.data.lang || 'ru');
         await this._grant({ productID: id, purchaseToken: 'vk-' + Date.now() + '-' + Math.random() });
         return true;
@@ -310,9 +333,11 @@ class YandexSDKManager {
   }
 
   // ---------- Реклама ----------
+  adsAllowed() { return this.mode === 'yandex' || this.mode === 'dev'; }
+
   canShowInterstitial() {
-    if (this.mode === 'vkplay') return false;
-    return this.mode !== 'offline' && !this.busy && !this.data.noAds &&
+    if (!this.adsAllowed()) return false;
+    return !this.busy && !this.data.noAds &&
       Date.now() - this.lastAdAt >= this.adInterval();
   }
   // Пауза между межстраничными роликами: 2 минуты, а на поздних стадиях игры — короче (см. CONFIG.ads.intervalByStageMs)
@@ -321,7 +346,7 @@ class YandexSDKManager {
     const stage = this.data ? stageFor(this.data.allTime) : 0;
     return Math.min(CONFIG.ads.interstitialIntervalMs, list[Math.min(stage, list.length - 1)]);
   }
-  canShowRewarded() { return this.mode !== 'offline' && this.mode !== 'vkplay' && !this.busy; }
+  canShowRewarded() { return this.adsAllowed() && !this.busy; }
 
   // Межстраничная реклама. Вызывать только в безопасные моменты (конец раунда / смена уровня).
   // Возвращает Promise<boolean> — была ли показана реклама.

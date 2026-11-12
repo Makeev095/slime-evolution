@@ -23,7 +23,7 @@ export const CONFIG = {
     milestones: [10, 25, 50, 100, 150, 200, 250, 300, 400, 500], // каждое достижение удваивает доход производителя
     tap: { baseCost: 25, growth: 1.38, doubleEvery: 10, cpsShare: 0.03 },
     essence: { divisor: 5e7, power: 0.34, perPoint: 0.1 },     // эссенция = (желе за забег / divisor)^power; +10% к доходу за очко
-    boost: { adMs: 120000, maxMs: 1800000, mult: 2, gemMult: 5, gemMs: 300000 },
+    boost: { adMs: 120000, maxMs: 1800000, mult: 2, gemMult: 5, gemMs: 300000, freeCooldownMs: 180000 },
     frenzy: { perTap: 0.065, decayPerSec: 0.45, holdMs: 500, durationMs: 7000, tapMult: 3 },
     gift: { cooldownMs: 240000, minutes: 10 },                // подарок за видео: 10 минут дохода
     golden: { firstMs: 22000, minMs: 45000, maxMs: 90000, lifeMs: 13000 },

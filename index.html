@@ -18,8 +18,9 @@
 <body>
   <div id="game-container"></div>
 
-  <!-- Официальный Yandex Games SDK. Для игры-архива в консоли Яндекса нужен ОТНОСИТЕЛЬНЫЙ путь /sdk.js (требование модерации).
-       Локально файла нет — игра переходит в dev-режим (реклама и покупки имитируются). Должен идти перед игровыми скриптами. -->
+  <!-- Официальный Yandex Games SDK. Для архива в консоли Яндекса нужен ОТНОСИТЕЛЬНЫЙ путь /sdk.js.
+       На VK Play / GitHub Pages sdk.js нет: игра идёт в режим vkplay (без рекламы, оплата через iframeApi).
+       Dev с имитацией рекламы и мгновенными покупками — только localhost. -->
   <script src="/sdk.js"></script>
   <!-- Phaser 3. build.sh подменяет CDN на локальный phaser.min.js внутри архива. -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>

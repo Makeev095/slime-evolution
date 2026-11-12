@@ -8,7 +8,7 @@
     "enNeededForOtherCountries": true,
     "paymentsDisabledUntil": "тестовые платежи включены (RUB). Боевую платежку не включать до финансовой модерации.",
     "iframe": "HTTPS без X-Frame-Options. Поле «Ссылка для iframe» в Метаданных.",
-    "callback": "HTTPS GET uid,sum,tid,merchant_param,sign → {status:ok}. Подпись: MD5(sorted key=value + секрет из «Системные свойства»). Повторный tid → ok без повторного начисления. Код: vkplay/callback.py и vkplay/worker.js. Постоянный хост — Cloudflare Worker slime-evolution-vkplay-billing (нужно заклеймить временный аккаунт). URL в кабинете сейчас указывает на живой callback.",
+    "callback": "HTTPS GET uid,sum,tid,merchant_param,sign → {status:ok}. Подпись: MD5(sorted key=value + секрет из «Системные свойства»). Повторный tid → ok без повторного начисления. Код: vkplay/callback.py и vkplay/worker.js. Постоянный хост 24/7: https://slime-evolution-billing.pages.dev/ (Cloudflare Pages). POST/GET /save — кросс-прогресс Windows/Android по uid. На VK Play нет рекламы и товара no_ads. Начисление IAP только после paymentReceivedCallback.",
     "storeLocales": "В кабинете VK Play у игры 51213 есть только store-локали RU и EN. Турецкий отмечен как язык игры (текст) в «Поддерживаемые языки». Отдельной tr_TR страницы магазина нет.",
     "itemsUploaded": "5 ItemDef загружены 2026-10-31: itemdefid 1–5."
   },

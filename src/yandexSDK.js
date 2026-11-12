@@ -5,7 +5,7 @@
 import { CONFIG, GENS, LANGS, setLang } from './config.js';
 import { stageFor } from './economy.js';
 import {
-  currencyOf, ensureUser, handshake, isVkPlay, loadCloudSave, looksLikeVkPlay,
+  currencyOf, ensureUser, handshake, inIframe, isVkPlay, loadCloudSave, looksLikeVkPlay,
   pay, userUid, waitForIframeApi, writeCloudSave, VKPLAY_PRICES
 } from './vkplay.js';
 
@@ -79,18 +79,19 @@ class YandexSDKManager {
     if (this.ready) return;
     const isLocal = ['localhost', '127.0.0.1', '', '0.0.0.0'].includes(location.hostname) || location.protocol === 'file:';
     const onGithubPages = /github\.io$/i.test(location.hostname);
-    if (looksLikeVkPlay() || onGithubPages) {
-      await waitForIframeApi(onGithubPages || looksLikeVkPlay() ? 4000 : 0);
-    }
+    const wantVk = looksLikeVkPlay() || onGithubPages;
+    if (wantVk) await waitForIframeApi(inIframe() ? 6000 : 0);
 
-    if (isVkPlay() || (onGithubPages && typeof YaGames === 'undefined')) {
+    if (wantVk || isVkPlay()) {
       this.mode = 'vkplay';
-      try {
-        this.vkApi = await withTimeout(handshake(), 8000);
-        try { await ensureUser(this.vkApi); } catch (e) { console.warn('[VKPlay] auth:', e && e.message ? e.message : e); }
-      } catch (e) {
-        console.warn('[VKPlay] handshake failed:', e);
-        this.vkApi = null;
+      if (inIframe() && typeof window.iframeApi === 'function') {
+        try {
+          this.vkApi = await withTimeout(handshake(), 10000);
+          try { await ensureUser(this.vkApi); } catch (e) { console.warn('[VKPlay] auth:', e && e.message ? e.message : e); }
+        } catch (e) {
+          console.warn('[VKPlay] handshake failed:', e);
+          this.vkApi = null;
+        }
       }
     } else if (typeof YaGames === 'undefined') {
       // Dev с фейковой рекламой и мгновенными покупками — только локально.
@@ -123,6 +124,11 @@ class YandexSDKManager {
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.flushCloud(); });
     this.lastAdAt = Date.now();
     this.ready = true;
+    try {
+      if (inIframe()) {
+        parent.postMessage({ slimeSdk: { mode: this.mode, pay: this.paymentsAvailable } }, '*');
+      }
+    } catch (e) { /* ignore */ }
   }
 
   // Сообщаем платформе, что игра загружена и готова к взаимодействию

@@ -1,7 +1,7 @@
 // VK Play JS API (iframeApi) + окно оплаты paymentFrame + облачный сейв по uid.
 // Спека: https://documentation.vkplay.ru/f2p_vkp/f2pb_billing_vkp
-// iframeApi подставляет платформа. На GitHub Pages без SDK Яндекса нельзя падать в dev:
-// иначе реклама и мгновенные «покупки» без окна — ровно то, за что срезала модерация.
+// Платформа кладёт iframeApi в РОДИТЕЛЬСКОЕ окно. В кросс-доменный iframe github.io
+// функция сама не попадает — подключаем ту же библиотеку iframe-api и делаем handshake.
 
 export const VKPLAY_APP_ID = 51213;
 export const VKPLAY_SAVE_URL = 'https://slime-evolution-billing.pages.dev/save';
@@ -47,7 +47,24 @@ export function isVkPlay() {
   return looksLikeVkPlay() || typeof window.iframeApi === 'function';
 }
 
+export function inIframe() {
+  try { return window.self !== window.top; } catch (e) { return true; }
+}
+
+export async function loadIframeApiScript() {
+  if (typeof window.iframeApi === 'function') return true;
+  return new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = new URL('./lib/iframe-api.js', import.meta.url).href;
+    s.onload = () => resolve(typeof window.iframeApi === 'function');
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+
 export async function waitForIframeApi(ms = 4000) {
+  if (typeof window.iframeApi === 'function') return true;
+  if (inIframe()) await loadIframeApiScript();
   if (typeof window.iframeApi === 'function') return true;
   const until = Date.now() + ms;
   while (Date.now() < until) {
@@ -82,6 +99,7 @@ export function handshake() {
       registerUserCallback: (info) => { window.__vkUser = info; },
       paymentReceivedCallback: (data) => { if (window.__vkPayOk) window.__vkPayOk(data); },
       paymentWindowClosedCallback: () => { if (window.__vkPayClosed) window.__vkPayClosed(); },
+      paymentFrameUrlCallback: () => {},
       getAuthTokenCallback: (tok) => { window.__vkToken = tok; },
       confirmWindowClosedCallback: () => {}
     };

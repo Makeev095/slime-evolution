@@ -90,6 +90,7 @@ class YandexSDKManager {
           try { await ensureUser(this.vkApi); } catch (e) { console.warn('[VKPlay] auth:', e && e.message ? e.message : e); }
         } catch (e) {
           console.warn('[VKPlay] handshake failed:', e);
+          this.handshakeError = String(e && e.message ? e.message : e);
           this.vkApi = null;
         }
       }
@@ -126,7 +127,14 @@ class YandexSDKManager {
     this.ready = true;
     try {
       if (inIframe()) {
-        parent.postMessage({ slimeSdk: { mode: this.mode, pay: this.paymentsAvailable } }, '*');
+        parent.postMessage({ slimeSdk: {
+          mode: this.mode,
+          pay: this.paymentsAvailable,
+          iframeApi: typeof window.iframeApi,
+          inIframe: inIframe(),
+          parentIsSelf: window.parent === window.self,
+          err: this.handshakeError || ''
+        } }, '*');
       }
     } catch (e) { /* ignore */ }
   }

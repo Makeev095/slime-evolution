@@ -2154,7 +2154,7 @@ module.exports = stamp;
 require('es6-promise').polyfill();
 
 function isIframed() {
-  return parent !== window && !window.iFrameApiParent;
+  try { return window.parent !== window.self; } catch (e) { return true; }
 }
 
 var apiMethods = require('./lib/api-methods');

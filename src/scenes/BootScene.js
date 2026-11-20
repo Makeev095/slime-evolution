@@ -1,5 +1,5 @@
 import { DESIGN, t, getLang } from '../config.js';
-import { YandexSDK } from '../yandexSDK.js?v=20261118';
+import { YandexSDK } from '../yandexSDK.js?v=20261120';
 import { Sfx } from '../audio.js';
 import { fitCamera, makeText, buildTextureJobs, gradientText } from '../ui.js';
 

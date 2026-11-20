@@ -55,7 +55,7 @@ export async function loadIframeApiScript() {
   if (typeof window.iframeApi === 'function') return true;
   return new Promise((resolve) => {
     const s = document.createElement('script');
-    s.src = new URL('./lib/iframe-api.js', import.meta.url).href.split('?')[0] + '?v=20261118';
+    s.src = new URL('./lib/iframe-api.js', import.meta.url).href.split('?')[0] + '?v=20261120';
     s.onload = () => resolve(typeof window.iframeApi === 'function');
     s.onerror = () => resolve(false);
     document.head.appendChild(s);
@@ -74,14 +74,50 @@ export async function waitForIframeApi(ms = 4000) {
   return typeof window.iframeApi === 'function';
 }
 
+function lookUid(value, depth) {
+  const d = depth || 0;
+  if (value == null || d > 5) return '';
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    const s = String(Math.trunc(value));
+    return /^\d{3,20}$/.test(s) && s !== String(VKPLAY_APP_ID) ? s : '';
+  }
+  if (typeof value === 'string') {
+    const s = value.trim();
+    return /^\d{3,20}$/.test(s) && s !== String(VKPLAY_APP_ID) ? s : '';
+  }
+  if (typeof value !== 'object') return '';
+  for (const key of ['uid', 'vid', 'user_id', 'userId', 'userid', 'account_id', 'id']) {
+    const found = lookUid(value[key], d + 1);
+    if (found) return found;
+  }
+  if (value.user) {
+    const found = lookUid(value.user, d + 1);
+    if (found) return found;
+  }
+  return '';
+}
+
 export function userUid() {
-  const u = window.__vkUser || {};
-  const tok = window.__vkToken || {};
-  return String(
-    u.uid || u.id || u.user_id ||
-    (u.user && (u.user.uid || u.user.id)) ||
-    tok.uid || ''
-  );
+  try {
+    const q = new URLSearchParams(location.search);
+    const fromUrl = lookUid(q.get('vid') || q.get('uid') || q.get('user_id') || '');
+    if (fromUrl) return fromUrl;
+  } catch (e) { /* ignore */ }
+  return lookUid(window.__vkUser)
+    || lookUid(window.__vkProfile)
+    || lookUid(window.__vkToken)
+    || lookUid(window.__vkLogin)
+    || '';
+}
+
+export async function waitForUid(ms = 6000) {
+  const until = Date.now() + ms;
+  let uid = userUid();
+  while (!uid && Date.now() < until) {
+    await sleep(80);
+    uid = userUid();
+  }
+  return uid;
 }
 
 export function handshake() {
@@ -96,7 +132,7 @@ export function handshake() {
       getLoginStatusCallback: (s) => { window.__vkLogin = s; },
       userInfoCallback: (info) => { window.__vkUser = info; },
       userProfileCallback: (p) => { window.__vkProfile = p; },
-      registerUserCallback: (info) => { window.__vkUser = info; },
+      registerUserCallback: (info) => { window.__vkUser = info || window.__vkUser; },
       paymentReceivedCallback: (data) => { if (window.__vkPayOk) window.__vkPayOk(data); },
       paymentWindowClosedCallback: () => { if (window.__vkPayClosed) window.__vkPayClosed(); },
       paymentFrameUrlCallback: () => {},
@@ -119,21 +155,17 @@ function loginStatus(status) {
 export async function ensureUser(api) {
   if (!api) return {};
   try { if (api.getLoginStatus) api.getLoginStatus(); } catch (e) { /* ignore */ }
-  for (let i = 0; i < 30 && !window.__vkLogin; i++) await sleep(50);
-  if (!window.__vkLogin) return {};
+  for (let i = 0; i < 40 && !window.__vkLogin; i++) await sleep(50);
   const code = loginStatus(window.__vkLogin);
-  if (code === 0 && api.authUser) {
-    api.authUser();
-    throw new Error('vkplay-auth');
-  }
-  if (code === 1 && api.registerUser) {
-    api.registerUser();
-    throw new Error('vkplay-register');
-  }
+  try {
+    if (code === 0 && api.authUser) api.authUser();
+    else if (code === 1 && api.registerUser) api.registerUser();
+  } catch (e) { /* окно логина платформы */ }
   try { if (api.userInfo) api.userInfo(); } catch (e) { /* ignore */ }
-  for (let i = 0; i < 30 && !window.__vkUser; i++) await sleep(50);
+  try { if (api.userProfile) api.userProfile(); } catch (e) { /* ignore */ }
   try { if (api.getAuthToken) api.getAuthToken(); } catch (e) { /* ignore */ }
-  return window.__vkUser || {};
+  await waitForUid(5000);
+  return window.__vkUser || window.__vkProfile || {};
 }
 
 export function pay(api, productId, lang) {
@@ -184,9 +216,11 @@ export async function loadCloudSave(uid) {
 
 export async function writeCloudSave(uid, data) {
   if (!uid || !data) return;
-  await fetch(VKPLAY_SAVE_URL, {
+  const r = await fetch(VKPLAY_SAVE_URL, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ uid: String(uid), save: data })
+    body: JSON.stringify({ uid: String(uid), save: data }),
+    keepalive: true
   });
+  if (!r.ok) throw new Error('cloud-save ' + r.status);
 }

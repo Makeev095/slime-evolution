@@ -6,8 +6,8 @@ import { CONFIG, GENS, LANGS, setLang } from './config.js';
 import { stageFor } from './economy.js';
 import {
   currencyOf, ensureUser, handshake, inIframe, isVkPlay, loadCloudSave, looksLikeVkPlay,
-  pay, userUid, waitForIframeApi, writeCloudSave, VKPLAY_PRICES
-} from './vkplay.js?v=20261118';
+  pay, userUid, waitForIframeApi, waitForUid, writeCloudSave, VKPLAY_PRICES, VKPLAY_SAVE_URL
+} from './vkplay.js?v=20261120';
 
 export const defaultData = () => ({
   v: 1,
@@ -51,6 +51,45 @@ function normalize(raw) {
   return d;
 }
 
+function writeInto(dst, src) {
+  const n = normalize(src);
+  for (const key of Object.keys(n)) {
+    dst[key] = Array.isArray(n[key]) ? n[key].slice() : n[key];
+  }
+  return dst;
+}
+
+// Windows/Android: берём лучший прогресс с обоих устройств, а не «кто последний зашёл».
+function mergeSaves(a, b) {
+  if (!a) return normalize(b);
+  if (!b) return normalize(a);
+  const x = normalize(a);
+  const y = normalize(b);
+  const out = defaultData();
+  for (const k of ['gel', 'runGel', 'allTime', 'gems', 'taps', 'tapLevel', 'essence', 'rebirths', 'seenStage']) {
+    out[k] = Math.max(x[k] || 0, y[k] || 0);
+  }
+  out.gens = x.gens.map((n, i) => Math.max(n || 0, y.gens[i] || 0));
+  out.x2 = !!(x.x2 || y.x2);
+  out.noAds = !!(x.noAds || y.noAds);
+  out.intro = !!(x.intro || y.intro);
+  out.tokens = Array.from(new Set([].concat(x.tokens || [], y.tokens || []))).slice(-CONFIG.shop.maxStoredTokens);
+  const recent = (x.updatedAt || 0) >= (y.updatedAt || 0) ? x : y;
+  out.lang = recent.lang;
+  out.sound = recent.sound;
+  out.dailyStreak = Math.max(x.dailyStreak || 0, y.dailyStreak || 0);
+  out.lastDaily = recent.lastDaily;
+  out.boostUntil = Math.max(x.boostUntil || 0, y.boostUntil || 0);
+  out.boostMult = Math.max(x.boostMult || 2, y.boostMult || 2);
+  out.goldUntil = Math.max(x.goldUntil || 0, y.goldUntil || 0);
+  out.stormUntil = Math.max(x.stormUntil || 0, y.stormUntil || 0);
+  out.giftAt = Math.max(x.giftAt || 0, y.giftAt || 0);
+  out.gemVideoAt = Math.max(x.gemVideoAt || 0, y.gemVideoAt || 0);
+  out.boostAt = Math.max(x.boostAt || 0, y.boostAt || 0);
+  out.updatedAt = Math.max(x.updatedAt || 0, y.updatedAt || 0, Date.now());
+  return out;
+}
+
 const withTimeout = (promise, ms) =>
   Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
 
@@ -71,6 +110,7 @@ class YandexSDKManager {
     this._saveTimer = null;
     this._gameplayOn = false;
     this._loadingReadySent = false;
+    this._cloudReady = false;
   }
 
   // ---------- Инициализация ----------
@@ -84,13 +124,13 @@ class YandexSDKManager {
 
     if (wantVk || isVkPlay()) {
       this.mode = 'vkplay';
-      if (inIframe() && typeof window.iframeApi === 'function') {
+      if (typeof window.iframeApi === 'function') {
         try {
           this.vkApi = await withTimeout(handshake(), 10000);
           try { await ensureUser(this.vkApi); } catch (e) { console.warn('[VKPlay] auth:', e && e.message ? e.message : e); }
         } catch (e) {
           console.warn('[VKPlay] handshake failed:', e);
-          this.handshakeError = String(e && e.message ? e.message : e);
+          this.handshakeError = String(e && e.message ? e.message : e) + (e && e.stack ? ' | ' + e.stack.split('\n')[0] : '');
           this.vkApi = null;
         }
       }
@@ -123,6 +163,8 @@ class YandexSDKManager {
     }
 
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.flushCloud(); });
+    window.addEventListener('pagehide', () => this.flushCloud());
+    window.addEventListener('freeze', () => this.flushCloud());
     this.lastAdAt = Date.now();
     this.ready = true;
     try {
@@ -133,6 +175,7 @@ class YandexSDKManager {
           iframeApi: typeof window.iframeApi,
           inIframe: inIframe(),
           parentIsSelf: window.parent === window.self,
+          uid: userUid(),
           keys: this.vkApi ? Object.keys(this.vkApi) : [],
           err: this.handshakeError || ''
         } }, '*');
@@ -175,18 +218,44 @@ class YandexSDKManager {
         cloud = res && res.save ? res.save : null;
       } catch (e) { console.warn('[YandexSDK] cloud load failed, fallback to localStorage:', e); }
     } else if (this.mode === 'vkplay') {
-      const uid = userUid();
+      if (this.vkApi) {
+        try { await ensureUser(this.vkApi); } catch (e) { /* ignore */ }
+      }
+      const uid = await waitForUid(6000);
       if (uid) {
         try { cloud = await withTimeout(loadCloudSave(uid), 5000); }
         catch (e) { console.warn('[VKPlay] cloud load failed:', e); }
+      } else {
+        console.warn('[VKPlay] no uid, cloud skipped');
       }
     }
-    // Побеждает более свежий прогресс — игрок не теряет данные ни при логине, ни при выходе
-    const pick = [cloud, local].filter(Boolean).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
-    this.data = normalize(pick);
+    writeInto(this.data, mergeSaves(cloud, local));
+    this._cloudReady = true;
     if (this.data.lang) setLang(this.data.lang);   // ручной выбор языка важнее языка платформы
     this.applyAudioState();
+    this._writeLocal();
+    if (this.mode === 'vkplay' && userUid()) this.flushCloud();
+    if (this.mode === 'vkplay' && !userUid()) this._watchUid();
     return this.data;
+  }
+
+  _watchUid() {
+    if (this._uidWatch) return;
+    this._uidWatch = true;
+    (async () => {
+      const uid = await waitForUid(20000);
+      this._uidWatch = false;
+      if (!uid) return;
+      let cloud = null;
+      try { cloud = await withTimeout(loadCloudSave(uid), 5000); }
+      catch (e) { console.warn('[VKPlay] late cloud load failed:', e); }
+      writeInto(this.data, mergeSaves(cloud, this.data));
+      this._writeLocal();
+      this.flushCloud();
+      if (this.onDataReload) {
+        try { this.onDataReload(); } catch (e) { /* ignore */ }
+      }
+    })();
   }
 
   // Игрок выбрал язык кнопкой с флагом
@@ -199,7 +268,8 @@ class YandexSDKManager {
   save(important = false) {
     this.data.updatedAt = Date.now();
     this._writeLocal();
-    const wait = important ? CONFIG.ads.saveDebounceMs : CONFIG.ads.cloudAutosaveMs;
+    const wait = important ? CONFIG.ads.saveDebounceMs
+      : (this.mode === 'vkplay' ? 4000 : CONFIG.ads.cloudAutosaveMs);
     if (this._saveTimer && !important) return; // уже запланировано
     clearTimeout(this._saveTimer);
     this._saveTimer = setTimeout(() => this.flushCloud(), wait);
@@ -209,6 +279,7 @@ class YandexSDKManager {
     clearTimeout(this._saveTimer);
     this._saveTimer = null;
     this._writeLocal();
+    if (!this._cloudReady) return;
     if (this.player) {
       try { this.player.setData({ save: this.data }, true).catch((e) => console.warn('[YandexSDK] cloud save failed:', e)); }
       catch (e) { console.warn('[YandexSDK] cloud save failed:', e); }
@@ -217,6 +288,13 @@ class YandexSDKManager {
     if (this.mode === 'vkplay') {
       const uid = userUid();
       if (!uid) return;
+      const body = JSON.stringify({ uid: String(uid), save: this.data });
+      try {
+        if (typeof navigator !== 'undefined' && navigator.sendBeacon && document.visibilityState === 'hidden') {
+          navigator.sendBeacon(VKPLAY_SAVE_URL, new Blob([body], { type: 'application/json' }));
+          return;
+        }
+      } catch (e) { /* fallback на fetch */ }
       writeCloudSave(uid, this.data).catch((e) => console.warn('[VKPlay] cloud save failed:', e));
     }
   }

@@ -1,11 +1,11 @@
 import { CONFIG, DESIGN, GENS, LANGS, LANG_NAMES, getLang, t, lname } from '../config.js';
-import { YandexSDK } from '../yandexSDK.js?v=20261118';
+import { YandexSDK } from '../yandexSDK.js?v=20261120';
 import { Sfx } from '../audio.js';
 import * as Eco from '../economy.js';
 import { fmt, fmtGel, fmtTime, fmtAway } from '../format.js';
 import { buildDecor, SLIME_SIZE } from '../art.js';
 import { makeText, gradientText, makeButton, makeRoundButton, burst, shock, floatText, toast } from '../ui.js';
-import { UpgradePanel, PANEL } from '../ui/UpgradePanel.js?v=20261118';
+import { UpgradePanel, PANEL } from '../ui/UpgradePanel.js?v=20261120';
 import { openModal } from '../ui/Modal.js';
 
 const E = CONFIG.eco;
@@ -94,6 +94,13 @@ export class PlayScene extends Phaser.Scene {
 
     // покупки, оформленные в магазине, сразу отражаются в игре
     YandexSDK.onGrant = (prod) => { this.dirty = true; this.panel.refresh(true); this.refreshHud(true); };
+    YandexSDK.onDataReload = () => {
+      this.d = YandexSDK.data;
+      this.dirty = true;
+      this.shownGel = this.d.gel;
+      this.panel.refresh(true);
+      this.refreshHud(true);
+    };
 
     // --- старт: ежедневная награда. Дохода «пока тебя не было» нет — желе капает только пока игрок в игре ---
     this.checkEvolution(true);
@@ -560,7 +567,7 @@ export class PlayScene extends Phaser.Scene {
       toast(this, lname(GENS[i]) + ': x2!', 560);
       burst(this, 300, 700, [0xffe14d, 0xffffff], 18, { depth: 80 });
     }
-    this.persist(false);
+    this.persist(true);
     return true;
   }
 
@@ -572,7 +579,7 @@ export class PlayScene extends Phaser.Scene {
     this.sfx('buy', 0.6);
     this.floatAtSlime('-' + fmt(cost), '#ffd0d0', 28);
     this.squashV += 4;
-    this.persist(false);
+    this.persist(true);
     return true;
   }
 
